@@ -61,7 +61,10 @@ export default function AdminHomeScreen() {
             <Text style={styles.headerWelcome}>PANEL ADMINISTRATIVO</Text>
             <Text style={styles.headerName}>Hola, {firstName}</Text>
           </View>
-          <TouchableOpacity style={styles.notifBtn}>
+          <TouchableOpacity
+            style={styles.notifBtn}
+            onPress={() => router.push('/(admin)/validate' as any)}
+          >
             <Ionicons name="notifications-outline" size={24} color={theme.colors.textPrimary} />
             <View style={styles.notifDot} />
           </TouchableOpacity>
@@ -140,8 +143,8 @@ export default function AdminHomeScreen() {
         {/* ── Alertas recientes ─────────────────────────────── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Alertas Recientes</Text>
-          <TouchableOpacity onPress={() => router.push('/(admin)/reports' as any)}>
-            <Text style={styles.sectionLink}>Ver todo</Text>
+          <TouchableOpacity onPress={() => router.push('/(admin)/validate' as any)}>
+            <Text style={styles.sectionLink}>Validar pendientes</Text>
           </TouchableOpacity>
         </View>
 

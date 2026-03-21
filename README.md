@@ -37,13 +37,13 @@ Se abrirá el Metro Bundler en la terminal. Escanea el código QR con la app **E
 
 ## Credenciales de prueba
 
-La app inicia sesión automáticamente como Administrador. Para probar otros roles, cierra sesión y usa:
+La app arranca en la pantalla de login. Ingresa cualquier cédula y contraseña (sin mínimo de caracteres):
 
-| Rol           | Cédula       | Contraseña        |
-|---------------|--------------|-------------------|
-| Administrador | `9000000001` | cualquiera ≥6 chars |
-| Reciclador    | `8000000001` | cualquiera ≥6 chars |
-| Ciudadano     | `1000000001` | cualquiera ≥6 chars |
+| Rol           | Cédula (ejemplo) | Contraseña  |
+|---------------|------------------|-------------|
+| Administrador | `9000000001`     | cualquiera  |
+| Reciclador    | `8000000001`     | cualquiera  |
+| Ciudadano     | `1000000001`     | cualquiera  |
 
 > El rol se determina por el primer dígito de la cédula: `9` → Admin, `8` → Reciclador, otro → Ciudadano.
 
@@ -58,10 +58,11 @@ eca-app/
 │   ├── (citizen)/       # Portal del ciudadano (9 pantallas)
 │   ├── (recycler)/      # Panel del reciclador (9 pantallas)
 │   ├── (admin)/         # Panel administrativo (8 pantallas)
-│   └── _layout.tsx      # Guard de autenticación y redirección por rol
+│   └── _layout.tsx      # AuthProvider + guard de autenticación y redirección por rol
 ├── src/
 │   ├── components/      # Componentes reutilizables (CustomButton, CustomInput, StatCard, etc.)
-│   ├── hooks/           # useAuth — manejo de sesión con AsyncStorage
+│   ├── context/         # AuthContext — estado global de sesión compartido entre todas las pantallas
+│   ├── hooks/           # useAuth — re-exporta el contexto para uso en componentes
 │   └── theme/           # Design tokens (colores, tipografía, espaciados, radios, sombras)
 ├── assets/              # Íconos y splash screen
 ├── app.json             # Configuración de Expo

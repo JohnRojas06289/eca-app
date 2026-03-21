@@ -145,10 +145,10 @@ export default function SuccessScreen() {
           style={styles.dashboardBtn}
         />
         <TouchableOpacity
-          onPress={handleGoToLogin}
+          onPress={handleGoToDashboard}
           style={styles.guideBtn}
         >
-          <Text style={styles.guideText}>Ver guía de usuario</Text>
+          <Text style={styles.guideText}>Explorar sin configurar</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

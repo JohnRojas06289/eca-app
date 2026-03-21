@@ -48,7 +48,13 @@ export default function RecyclerWeighingsScreen() {
   const [filter, setFilter]   = useState<FilterPeriod>('week');
   const [search, setSearch]   = useState('');
 
-  const filtered = WEIGHINGS.filter(
+  const byPeriod = filter === 'day'
+    ? WEIGHINGS.filter((w) => w.timestamp.startsWith('Hoy'))
+    : filter === 'week'
+    ? WEIGHINGS.slice(0, 4)
+    : WEIGHINGS;
+
+  const filtered = byPeriod.filter(
     (w) =>
       search === '' ||
       w.material.toLowerCase().includes(search.toLowerCase()) ||
@@ -61,14 +67,13 @@ export default function RecyclerWeighingsScreen() {
 
       {/* ── Header ────────────────────────────────────────── */}
       <View style={styles.header}>
+        <Text style={styles.headerTitle}>Mis Pesajes</Text>
         <TouchableOpacity
-          onPress={router.back}
+          onPress={() => router.push('/(recycler)/new-weighing')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
+          <Ionicons name="add-circle-outline" size={26} color={theme.colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mis Pesajes</Text>
-        <Ionicons name="scale-outline" size={24} color={theme.colors.primary} />
       </View>
 
       <ScrollView

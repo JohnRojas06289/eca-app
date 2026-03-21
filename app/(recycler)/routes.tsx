@@ -80,9 +80,9 @@ export default function RecyclerRoutesScreen() {
             <View style={styles.mapDot} />
             <Text style={styles.mapBadgeText}>En camino: Calle 4 con Carrera 10</Text>
           </View>
-          <TouchableOpacity style={styles.locateBtn}>
+          <View style={styles.locateBtn}>
             <Ionicons name="locate" size={20} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── Ruta en curso ─────────────────────────────── */}

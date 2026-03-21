@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,22 +17,6 @@ import { MaterialItem } from '@/src/components/MaterialItem';
 import type { MaterialType } from '@/src/components/MaterialItem';
 
 type UserStatus = 'active' | 'inactive' | 'pending';
-
-// En producción, los datos vendrán por route params / API:
-// const { userId } = useLocalSearchParams();
-const MOCK_USER = {
-  id: '1',
-  name: 'Juan Pérez',
-  cedula: '12345678',
-  phone: '+57 310 987 6543',
-  role: 'recycler' as const,
-  status: 'active' as UserStatus,
-  association: 'Asociación de Recicladores Zipaquirá',
-  joinedAt: 'Enero 2024',
-  totalKg: 1250,
-  totalRoutes: 42,
-  totalValue: 890_000,
-};
 
 const RECENT_WEIGHINGS: {
   id: string; material: string; materialType: MaterialType; kg: number; timestamp: string;
@@ -50,11 +34,27 @@ const STATUS_CONFIG: Record<UserStatus, { label: string; color: string; bgColor:
 
 export default function UserDetailScreen() {
   const router = useRouter();
-  const [status, setStatus]   = useState<UserStatus>(MOCK_USER.status);
+  const params = useLocalSearchParams<{
+    userName: string;
+    userCedula: string;
+    userRole: string;
+    userStatus: string;
+    userAssociation: string;
+    userJoinedAt: string;
+    userTotalKg: string;
+  }>();
+
+  const [status, setStatus]   = useState<UserStatus>((params.userStatus as UserStatus) ?? 'active');
   const [toggling, setToggling] = useState(false);
 
+  const name        = params.userName       ?? '—';
+  const cedula      = params.userCedula     ?? '—';
+  const association = params.userAssociation ?? '';
+  const joinedAt    = params.userJoinedAt   ?? '—';
+  const totalKg     = Number(params.userTotalKg ?? 0);
+
   const statusCfg = STATUS_CONFIG[status];
-  const initials  = MOCK_USER.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  const initials  = name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
 
   async function toggleStatus() {
     setToggling(true);
@@ -71,7 +71,7 @@ export default function UserDetailScreen() {
   function confirmApprove() {
     Alert.alert(
       'Aprobar usuario',
-      `¿Aprobar a ${MOCK_USER.name} como reciclador activo?`,
+      `¿Aprobar a ${name} como reciclador activo?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Aprobar', style: 'default', onPress: () => setStatus('active') },
@@ -110,12 +110,12 @@ export default function UserDetailScreen() {
               {statusCfg.label}
             </Text>
           </View>
-          <Text style={styles.profileName}>{MOCK_USER.name}</Text>
-          <Text style={styles.profileCedula}>CC {MOCK_USER.cedula}</Text>
-          {MOCK_USER.association && (
+          <Text style={styles.profileName}>{name}</Text>
+          <Text style={styles.profileCedula}>CC {cedula}</Text>
+          {association !== '' && (
             <View style={styles.assocBadge}>
               <Ionicons name="leaf-outline" size={12} color={theme.colors.primary} />
-              <Text style={styles.assocText}>{MOCK_USER.association}</Text>
+              <Text style={styles.assocText}>{association}</Text>
             </View>
           )}
         </View>
@@ -123,17 +123,15 @@ export default function UserDetailScreen() {
         {/* ── Métricas ──────────────────────────────────────── */}
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>{MOCK_USER.totalKg.toLocaleString('es-CO')}</Text>
+            <Text style={styles.metricValue}>{totalKg.toLocaleString('es-CO')}</Text>
             <Text style={styles.metricLabel}>kg recolectados</Text>
           </View>
           <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>{MOCK_USER.totalRoutes}</Text>
+            <Text style={styles.metricValue}>—</Text>
             <Text style={styles.metricLabel}>rutas completadas</Text>
           </View>
           <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>
-              ${(MOCK_USER.totalValue / 1000).toFixed(0)}K
-            </Text>
+            <Text style={styles.metricValue}>—</Text>
             <Text style={styles.metricLabel}>valor generado</Text>
           </View>
         </View>
@@ -142,36 +140,41 @@ export default function UserDetailScreen() {
         <Text style={styles.sectionTitle}>Información</Text>
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
-            <Ionicons name="call-outline" size={16} color={theme.colors.textMuted} />
-            <Text style={styles.infoLabel}>Teléfono</Text>
-            <Text style={styles.infoValue}>{MOCK_USER.phone}</Text>
-          </View>
-          <View style={styles.infoDivider} />
-          <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={16} color={theme.colors.textMuted} />
             <Text style={styles.infoLabel}>Registrado</Text>
-            <Text style={styles.infoValue}>{MOCK_USER.joinedAt}</Text>
+            <Text style={styles.infoValue}>{joinedAt}</Text>
           </View>
           <View style={styles.infoDivider} />
           <View style={styles.infoRow}>
             <Ionicons name="person-outline" size={16} color={theme.colors.textMuted} />
             <Text style={styles.infoLabel}>Rol</Text>
-            <Text style={styles.infoValue}>Reciclador</Text>
+            <Text style={styles.infoValue}>
+              {params.userRole === 'recycler' ? 'Reciclador' : params.userRole === 'admin' ? 'Administrador' : 'Ciudadano'}
+            </Text>
           </View>
         </View>
 
-        {/* ── Pesajes recientes ─────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Pesajes Recientes</Text>
-        {RECENT_WEIGHINGS.map((w) => (
-          <MaterialItem
-            key={w.id}
-            name={w.material}
-            timestamp={w.timestamp}
-            value={`${w.kg} kg`}
-            valueColor={theme.colors.primary}
-            materialType={w.materialType}
-          />
-        ))}
+        {/* ── Pesajes recientes (solo recicladores) ────────── */}
+        {params.userRole === 'recycler' && (
+          <>
+            <Text style={styles.sectionTitle}>Pesajes Recientes</Text>
+            {totalKg > 0 ? RECENT_WEIGHINGS.map((w) => (
+              <MaterialItem
+                key={w.id}
+                name={w.material}
+                timestamp={w.timestamp}
+                value={`${w.kg} kg`}
+                valueColor={theme.colors.primary}
+                materialType={w.materialType}
+              />
+            )) : (
+              <View style={styles.emptyWeighings}>
+                <Ionicons name="scale-outline" size={32} color={theme.colors.textMuted} />
+                <Text style={styles.emptyWeighingsText}>Sin pesajes registrados</Text>
+              </View>
+            )}
+          </>
+        )}
 
         {/* ── Acciones ──────────────────────────────────────── */}
         <View style={styles.actionsSection}>
@@ -354,6 +357,17 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: theme.colors.separator,
     marginLeft: theme.spacing.lg + 16 + theme.spacing.md,
+  },
+
+  // ── Empty weighings ──────────────────────────────────────
+  emptyWeighings: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xxl,
+    gap: theme.spacing.sm,
+  },
+  emptyWeighingsText: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textMuted,
   },
 
   // ── Acciones ─────────────────────────────────────────────

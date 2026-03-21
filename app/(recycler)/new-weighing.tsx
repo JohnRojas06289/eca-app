@@ -57,7 +57,7 @@ export default function NewWeighingScreen() {
       // ⚠️ Reemplazar con llamada real a la API:
       // await WeighingApi.create({ material: selectedMaterial, kg: kgNum, note });
       await new Promise((r) => setTimeout(r, 800));
-      router.replace('/(recycler)/weighing-station');
+      router.replace('/(recycler)/weighings');
     } finally {
       setLoading(false);
     }
@@ -171,10 +171,10 @@ export default function NewWeighingScreen() {
 
           {/* ── Ir a báscula ──────────────────────────────── */}
           <CustomButton
-            label="Ir a Báscula"
+            label="Guardar Pesaje"
             leftIcon={
               <Ionicons
-                name="scale-outline"
+                name="checkmark-done-outline"
                 size={20}
                 color={theme.colors.textOnPrimary}
               />

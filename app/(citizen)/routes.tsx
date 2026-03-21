@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,21 +21,9 @@ export default function CitizenRoutesScreen() {
 
       {/* ── Barra de búsqueda flotante sobre el mapa ──────── */}
       <View style={styles.searchBar}>
-        <TouchableOpacity
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="arrow-back" size={20} color={theme.colors.textSecondary} />
-        </TouchableOpacity>
+        <Ionicons name="search-outline" size={20} color={theme.colors.textMuted} />
         <Text style={styles.searchText}>Buscar dirección en Zipaquirá</Text>
-        <TouchableOpacity
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons
-            name="options-outline"
-            size={20}
-            color={theme.colors.textSecondary}
-          />
-        </TouchableOpacity>
+        <View style={{ width: 20 }} />
       </View>
 
       {/* ── Mapa ──────────────────────────────────────────── */}
@@ -78,9 +66,9 @@ export default function CitizenRoutesScreen() {
         </View>
 
         {/* Botón de localización */}
-        <TouchableOpacity style={styles.locateBtn}>
+        <View style={styles.locateBtn}>
           <Ionicons name="locate" size={22} color={theme.colors.textPrimary} />
-        </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Bottom sheet: próxima ruta ────────────────────── */}
@@ -133,7 +121,13 @@ export default function CitizenRoutesScreen() {
               color={theme.colors.textOnPrimary}
             />
           }
-          onPress={() => {}}
+          onPress={() =>
+            Alert.alert(
+              'Notificación activada',
+              'Te avisaremos cuando el camión de recolección esté a menos de 10 minutos.',
+              [{ text: 'Entendido' }],
+            )
+          }
         />
       </View>
     </SafeAreaView>

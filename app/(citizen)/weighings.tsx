@@ -45,11 +45,17 @@ export default function CitizenWeighingsScreen() {
   const [activeFilter, setActiveFilter] = useState<FilterTab>('Mes');
   const [search, setSearch] = useState('');
 
-  const totalKg = DEMO_WEIGHINGS
+  const byPeriod = activeFilter === 'Día'
+    ? DEMO_WEIGHINGS.slice(0, 1)
+    : activeFilter === 'Semana'
+    ? DEMO_WEIGHINGS.slice(0, 3)
+    : DEMO_WEIGHINGS;
+
+  const totalKg = byPeriod
     .filter((w) => w.status === 'CONFIRMADO')
     .reduce((sum, w) => sum + w.kg, 0);
 
-  const filtered = DEMO_WEIGHINGS.filter((w) =>
+  const filtered = byPeriod.filter((w) =>
     w.material.toLowerCase().includes(search.toLowerCase()),
   );
 
@@ -60,13 +66,6 @@ export default function CitizenWeighingsScreen() {
       {/* ── Header ────────────────────────────────────────── */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Histórico de Pesajes</Text>
-        <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons
-            name="ellipsis-vertical"
-            size={22}
-            color={theme.colors.textPrimary}
-          />
-        </TouchableOpacity>
       </View>
 
       <ScrollView

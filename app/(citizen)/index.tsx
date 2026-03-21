@@ -35,18 +35,15 @@ export default function CitizenHomeScreen() {
       >
         {/* ── Header ────────────────────────────────────── */}
         <View style={styles.header}>
-          <TouchableOpacity
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="menu" size={26} color={theme.colors.textPrimary} />
-          </TouchableOpacity>
+          <View style={{ width: 26 }} />
           <Text style={styles.headerTitle}>Portal Ciudadano</Text>
           <TouchableOpacity
+            onPress={() => router.push('/(citizen)/support')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
-              name="notifications-outline"
-              size={24}
+              name="help-circle-outline"
+              size={26}
               color={theme.colors.textPrimary}
             />
           </TouchableOpacity>
@@ -80,7 +77,7 @@ export default function CitizenHomeScreen() {
             y cuidar el planeta desde casa.
           </Text>
           <CustomButton
-            label="Ver cursos disponibles"
+            label="Ver guía de reciclaje"
             rightIcon={
               <Ionicons
                 name="arrow-forward"
@@ -88,7 +85,7 @@ export default function CitizenHomeScreen() {
                 color={theme.colors.textOnPrimary}
               />
             }
-            onPress={() => {}}
+            onPress={() => router.push('/(citizen)/recycle-guide')}
             size="md"
           />
         </View>
@@ -97,13 +94,8 @@ export default function CitizenHomeScreen() {
         <Text style={styles.servicesTitle}>Servicios Ciudadanos</Text>
         <View style={styles.servicesGrid}>
           <ServiceCard
-            icon="car-outline"
-            label="Solicitar Recolección"
-            onPress={() => router.push('/(citizen)/schedule')}
-          />
-          <ServiceCard
             icon="time-outline"
-            label="Horarios"
+            label="Horarios de Recolección"
             onPress={() => router.push('/(citizen)/schedule')}
           />
           <ServiceCard
@@ -115,6 +107,11 @@ export default function CitizenHomeScreen() {
             icon="sync-circle-outline"
             label="Guía de Reciclaje"
             onPress={() => router.push('/(citizen)/recycle-guide')}
+          />
+          <ServiceCard
+            icon="headset-outline"
+            label="Soporte"
+            onPress={() => router.push('/(citizen)/support')}
           />
         </View>
 

@@ -119,7 +119,6 @@ export default function RecyclerProfileScreen() {
             icon="call-outline"
             label="Teléfono"
             value={user?.phone ?? '—'}
-            onPress={() => {}}
           />
           <View style={styles.cardDivider} />
           <InfoRow

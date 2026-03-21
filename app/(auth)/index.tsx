@@ -34,18 +34,12 @@ export default function LoginScreen() {
     if (!cedula.trim()) {
       setCedulaError('Ingrese su número de identificación');
       valid = false;
-    } else if (cedula.trim().length < 6) {
-      setCedulaError('La cédula debe tener al menos 6 dígitos');
-      valid = false;
     } else {
       setCedulaError('');
     }
 
     if (!password.trim()) {
       setPasswordError('Ingrese su contraseña');
-      valid = false;
-    } else if (password.trim().length < 6) {
-      setPasswordError('La contraseña debe tener al menos 6 caracteres');
       valid = false;
     } else {
       setPasswordError('');
@@ -84,6 +78,11 @@ export default function LoginScreen() {
         token: 'demo-token',
         cedula,
       });
+      const destination =
+        role === 'admin'    ? '/(admin)'    :
+        role === 'recycler' ? '/(recycler)' :
+        '/(citizen)';
+      router.replace(destination as any);
     } catch {
       setLoginError('Credenciales incorrectas. Verifica tu ID y contraseña.');
     } finally {
@@ -168,40 +167,12 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* ── Acceso rápido para Ciudadanos ──────────────── */}
-          <View style={styles.citizenSection}>
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>ATENCIÓN AL CIUDADANO</Text>
-              <View style={styles.dividerLine} />
-            </View>
-            <Text style={styles.citizenQuestion}>¿Eres Ciudadano?</Text>
-            <View style={styles.citizenActions}>
-              <TouchableOpacity
-                style={styles.citizenBtn}
-                onPress={() => router.push('/(auth)/register')}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="headset-outline"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text style={styles.citizenBtnText}>Radicar PQRS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.citizenBtn}
-                onPress={() => router.push('/(auth)/register')}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name="book-outline"
-                  size={24}
-                  color={theme.colors.primary}
-                />
-                <Text style={styles.citizenBtnText}>Guía Reciclaje</Text>
-              </TouchableOpacity>
-            </View>
+          {/* ── Link de registro ───────────────────────────── */}
+          <View style={styles.registerRow}>
+            <Text style={styles.registerText}>¿No tienes una cuenta? </Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
+              <Text style={styles.registerLink}>Regístrate</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -299,50 +270,18 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.md,
   },
 
-  // ── Sección Ciudadano ───────────────────────────────────
-  citizenSection: {
-    alignItems: 'center',
-  },
-  dividerRow: {
+  // ── Link de registro ────────────────────────────────────
+  registerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: theme.spacing.md,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: theme.colors.border,
-  },
-  dividerText: {
-    fontSize: theme.typography.sizes.tiny,
-    fontWeight: theme.typography.weights.semibold,
-    color: theme.colors.textMuted,
-    marginHorizontal: theme.spacing.md,
-    letterSpacing: 0.8,
-  },
-  citizenQuestion: {
-    fontSize: theme.typography.sizes.h4,
-    fontWeight: theme.typography.weights.bold,
-    color: theme.colors.textPrimary,
-    marginBottom: theme.spacing.lg,
-  },
-  citizenActions: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    width: '100%',
-  },
-  citizenBtn: {
-    flex: 1,
-    backgroundColor: theme.colors.primaryLight,
-    borderRadius: theme.radius.lg,
-    paddingVertical: theme.spacing.lg,
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: theme.spacing.sm,
+    alignItems: 'center',
   },
-  citizenBtnText: {
-    fontSize: theme.typography.sizes.small,
+  registerText: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textSecondary,
+  },
+  registerLink: {
+    fontSize: theme.typography.sizes.body,
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.primary,
   },

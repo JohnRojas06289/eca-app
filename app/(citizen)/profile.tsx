@@ -65,13 +65,7 @@ export default function CitizenProfileScreen() {
           <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Perfil</Text>
-        <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons
-            name="pencil-outline"
-            size={22}
-            color={theme.colors.primary}
-          />
-        </TouchableOpacity>
+        <View style={{ width: 22 }} />
       </View>
 
       <ScrollView
@@ -149,21 +143,18 @@ export default function CitizenProfileScreen() {
             icon="id-card-outline"
             label="Cédula"
             value={user?.cedula ?? '1.023.456.789'}
-            onPress={() => {}}
           />
           <View style={styles.rowDivider} />
           <InfoRow
             icon="call-outline"
             label="Teléfono"
             value={user?.phone ?? '+57 312 456 7890'}
-            onPress={() => {}}
           />
           <View style={styles.rowDivider} />
           <InfoRow
             icon="business-outline"
             label="Asociación"
             value={user?.association ?? 'Asorecicladores Zipa'}
-            onPress={() => {}}
           />
         </View>
 

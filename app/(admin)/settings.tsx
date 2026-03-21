@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +53,7 @@ function SettingItem({ icon, label, subtitle, onPress, danger }: SettingRow) {
 }
 
 export default function AdminSettingsScreen() {
+  const router = useRouter();
   const { user, signOut } = useAuth();
 
   const [autoValidate,  setAutoValidate]  = useState(false);
@@ -164,7 +166,7 @@ export default function AdminSettingsScreen() {
             icon="map-outline"
             label="Configurar rutas"
             subtitle="Añadir, editar o eliminar rutas de recolección"
-            onPress={() => {}}
+            onPress={() => router.push('/(admin)/routes' as any)}
           />
           <View style={styles.cardDivider} />
           <SettingItem
@@ -206,7 +208,7 @@ export default function AdminSettingsScreen() {
           <SettingItem
             icon="key-outline"
             label="Cambiar contraseña"
-            onPress={() => {}}
+            onPress={() => router.push('/(auth)/forgot-password' as any)}
           />
           <View style={styles.cardDivider} />
           <SettingItem

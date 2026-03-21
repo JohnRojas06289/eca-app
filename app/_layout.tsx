@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useAuth } from '@/src/hooks/useAuth';
+import { AuthProvider, useAuth } from '@/src/hooks/useAuth';
 import { theme } from '@/src/theme/theme';
 
 /**
@@ -17,6 +17,14 @@ import { theme } from '@/src/theme/theme';
  * para evitar flashes de contenido sin autenticar.
  */
 export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootNavigator />
+    </AuthProvider>
+  );
+}
+
+function RootNavigator() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const segments = useSegments();

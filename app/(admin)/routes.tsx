@@ -135,11 +135,9 @@ export default function AdminRoutesScreen() {
             : 0;
 
           return (
-            <TouchableOpacity
+            <View
               key={route.id}
               style={styles.routeCard}
-              onPress={() => {}}
-              activeOpacity={0.85}
             >
               {/* Cabecera */}
               <View style={styles.routeCardHeader}>
@@ -181,7 +179,7 @@ export default function AdminRoutesScreen() {
                   {route.startTime} → {route.estimatedEnd}
                 </Text>
               </View>
-            </TouchableOpacity>
+            </View>
           );
         })}
       </ScrollView>

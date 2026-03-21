@@ -139,7 +139,21 @@ export default function AdminUsersScreen() {
               <TouchableOpacity
                 key={u.id}
                 style={styles.userCard}
-                onPress={() => router.push('/(admin)/user-detail' as any)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(admin)/user-detail' as any,
+                    params: {
+                      userId: u.id,
+                      userName: u.name,
+                      userCedula: u.cedula,
+                      userRole: u.role,
+                      userStatus: u.status,
+                      userAssociation: u.association ?? '',
+                      userJoinedAt: u.joinedAt,
+                      userTotalKg: u.totalKg?.toString() ?? '0',
+                    },
+                  })
+                }
                 activeOpacity={0.85}
               >
                 {/* Avatar */}

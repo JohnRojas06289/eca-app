@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -54,6 +55,7 @@ const WASTE_CATEGORIES: WasteCategory[] = [
 ];
 
 export default function RecycleGuideScreen() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
 
   const filteredCategories = WASTE_CATEGORIES.filter(
@@ -75,13 +77,7 @@ export default function RecycleGuideScreen() {
         {/* ── Header ────────────────────────────────────── */}
         <View style={styles.header}>
           <Ionicons name="sync-circle" size={28} color={theme.colors.primary} />
-          <TouchableOpacity hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color={theme.colors.textPrimary}
-            />
-          </TouchableOpacity>
+          <View style={{ width: 24 }} />
         </View>
 
         {/* ── Título ────────────────────────────────────── */}
@@ -178,7 +174,7 @@ export default function RecycleGuideScreen() {
               color={theme.colors.textOnPrimary}
             />
           }
-          onPress={() => {}}
+          onPress={() => router.push('/(citizen)/routes')}
           style={styles.collectBtn}
         />
       </ScrollView>

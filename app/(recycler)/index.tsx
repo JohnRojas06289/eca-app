@@ -57,6 +57,7 @@ export default function RecyclerHomeScreen() {
           </View>
           <TouchableOpacity
             style={styles.notifBtn}
+            onPress={() => router.push('/(recycler)/alerts')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons
@@ -104,19 +105,34 @@ export default function RecyclerHomeScreen() {
           />
         </View>
 
-        {/* ── Botón registrar pesaje ────────────────────── */}
-        <CustomButton
-          label="REGISTRAR PESAJE"
-          leftIcon={
-            <Ionicons
-              name="scale-outline"
-              size={20}
-              color={theme.colors.textOnPrimary}
-            />
-          }
-          onPress={() => router.push('/(recycler)/new-weighing')}
-          style={styles.weighingBtn}
-        />
+        {/* ── Acciones rápidas ──────────────────────────── */}
+        <View style={styles.quickActions}>
+          <CustomButton
+            label="REGISTRAR PESAJE"
+            leftIcon={
+              <Ionicons
+                name="scale-outline"
+                size={20}
+                color={theme.colors.textOnPrimary}
+              />
+            }
+            onPress={() => router.push('/(recycler)/new-weighing')}
+            style={styles.actionBtn}
+          />
+          <CustomButton
+            label="VER PRECIOS"
+            leftIcon={
+              <Ionicons
+                name="pricetag-outline"
+                size={18}
+                color={theme.colors.primary}
+              />
+            }
+            variant="secondary"
+            onPress={() => router.push('/(recycler)/prices')}
+            style={styles.actionBtn}
+          />
+        </View>
 
         {/* ── Actividad reciente ────────────────────────── */}
         <View style={styles.sectionHeader}>
@@ -253,8 +269,12 @@ const styles = StyleSheet.create({
   },
   statCardHalf: { flex: 1 },
 
-  // ── Botón pesaje ─────────────────────────────────────────
-  weighingBtn: { marginBottom: theme.spacing.xxl },
+  // ── Acciones rápidas ─────────────────────────────────────
+  quickActions: {
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.xxl,
+  },
+  actionBtn: {},
 
   // ── Actividad reciente ───────────────────────────────────
   sectionHeader: {
