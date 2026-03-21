@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "ZipaRecicla",
+    "slug": "eca-ziparecicla",
+    "version": "1.0.0",
+    "scheme": "eca-ziparecicla",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#2DC84D"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "co.gov.zipaquira.eca"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#2DC84D"
+      },
+      "package": "co.gov.zipaquira.eca"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
