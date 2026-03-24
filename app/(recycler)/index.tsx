@@ -108,15 +108,15 @@ export default function RecyclerHomeScreen() {
         {/* ── Acciones rápidas ──────────────────────────── */}
         <View style={styles.quickActions}>
           <CustomButton
-            label="REGISTRAR PESAJE"
+            label="REVISAR PESAJES"
             leftIcon={
               <Ionicons
-                name="scale-outline"
+                name="checkmark-circle-outline"
                 size={20}
                 color={theme.colors.textOnPrimary}
               />
             }
-            onPress={() => router.push('/(recycler)/new-weighing')}
+            onPress={() => router.push('/(recycler)/validate')}
             style={styles.actionBtn}
           />
           <CustomButton
@@ -167,14 +167,6 @@ export default function RecyclerHomeScreen() {
         </View>
       </ScrollView>
 
-      {/* ── FAB (botón de acción flotante) ────────────────── */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/(recycler)/new-weighing')}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="add" size={28} color={theme.colors.textOnPrimary} />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -184,7 +176,7 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: theme.spacing.screen,
-    paddingBottom: theme.spacing.huge + theme.sizes.fabSize,
+    paddingBottom: theme.spacing.huge,
   },
 
   // ── Header ──────────────────────────────────────────────
@@ -327,17 +319,4 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
   },
 
-  // ── FAB ──────────────────────────────────────────────────
-  fab: {
-    position: 'absolute',
-    bottom: theme.sizes.tabBarHeight + theme.spacing.md,
-    alignSelf: 'center',
-    width: theme.sizes.fabSize,
-    height: theme.sizes.fabSize,
-    borderRadius: theme.radius.circle,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...theme.shadows.lg,
-  },
 });

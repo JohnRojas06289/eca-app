@@ -88,7 +88,7 @@ export default function AdminSettingsScreen() {
             <Text style={styles.profileName}>{user?.name ?? 'Administrador'}</Text>
             <Text style={styles.profileRole}>Administrador del Sistema</Text>
             <Text style={styles.profileCedula}>
-              {user?.cedula ? `CC ${user.cedula}` : '—'}
+              {user?.email ?? '—'}
             </Text>
           </View>
         </View>
@@ -184,24 +184,6 @@ export default function AdminSettingsScreen() {
           />
         </View>
 
-        {/* ── Integraciones ─────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Integraciones</Text>
-        <View style={styles.card}>
-          <SettingItem
-            icon="server-outline"
-            label="API & Webhooks"
-            subtitle="Configuración de endpoints externos"
-            onPress={() => {}}
-          />
-          <View style={styles.cardDivider} />
-          <SettingItem
-            icon="cloud-upload-outline"
-            label="Exportar base de datos"
-            subtitle="CSV completo de pesajes y usuarios"
-            onPress={() => {}}
-          />
-        </View>
-
         {/* ── Cuenta ────────────────────────────────────────── */}
         <Text style={styles.sectionTitle}>Cuenta</Text>
         <View style={styles.card}>
@@ -220,7 +202,7 @@ export default function AdminSettingsScreen() {
         </View>
 
         {/* ── Versión ───────────────────────────────────────── */}
-        <Text style={styles.versionText}>ZipaRecicla Admin · v1.0.0</Text>
+        <Text style={styles.versionText}>ECA App · v1.0.0</Text>
       </ScrollView>
     </SafeAreaView>
   );

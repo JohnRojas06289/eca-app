@@ -73,7 +73,7 @@ export default function RecyclerProfileScreen() {
 
           <Text style={styles.profileName}>{user?.name ?? 'Reciclador'}</Text>
           <Text style={styles.profileCedula}>
-            {user?.cedula ? `CC ${user.cedula}` : 'Sin cédula registrada'}
+            {user?.email ?? 'Sin correo registrado'}
           </Text>
 
           {/* Asociación */}
@@ -122,9 +122,9 @@ export default function RecyclerProfileScreen() {
           />
           <View style={styles.cardDivider} />
           <InfoRow
-            icon="card-outline"
-            label="Cédula"
-            value={user?.cedula ?? '—'}
+            icon="mail-outline"
+            label="Correo"
+            value={user?.email ?? '—'}
           />
         </View>
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
@@ -21,9 +22,9 @@ export default function LoginScreen() {
   const router = useRouter();
   const { signIn } = useAuth();
 
-  const [cedula, setCedula] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [cedulaError, setCedulaError] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [loginError, setLoginError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,11 +32,14 @@ export default function LoginScreen() {
   function validate(): boolean {
     let valid = true;
 
-    if (!cedula.trim()) {
-      setCedulaError('Ingrese su número de identificación');
+    if (!email.trim()) {
+      setEmailError('Ingrese su correo electrónico');
+      valid = false;
+    } else if (!email.includes('@')) {
+      setEmailError('Ingrese un correo electrónico válido');
       valid = false;
     } else {
-      setCedulaError('');
+      setEmailError('');
     }
 
     if (!password.trim()) {
@@ -54,37 +58,42 @@ export default function LoginScreen() {
     setLoginError('');
     try {
       // ⚠️ Reemplazar con la llamada real a tu API de autenticación:
-      // const response = await AuthApi.login({ cedula, password });
+      // const response = await AuthApi.login({ email, password });
       // await signIn(response.user);
       //
-      // Demo — detecta rol por prefijo de cédula:
-      //   9xxxxxxx → admin
-      //   8xxxxxxx → recycler
+      // Demo — detecta rol por prefijo del correo:
+      //   admin@...      → admin
+      //   recycler@...   → recycler
+      //   supervisor@... → supervisor
       //   cualquier otro → citizen
       await new Promise((r) => setTimeout(r, 600));
+      const prefix = email.split('@')[0].toLowerCase();
       const role =
-        cedula.startsWith('9') ? 'admin' :
-        cedula.startsWith('8') ? 'recycler' :
+        prefix === 'admin'      ? 'admin'      :
+        prefix === 'recycler'   ? 'recycler'   :
+        prefix === 'supervisor' ? 'supervisor' :
         'citizen';
       const names: Record<string, string> = {
-        admin:    'Carlos Administrador',
-        recycler: 'Juan Reciclador',
-        citizen:  'María Ciudadana',
+        admin:      'Carlos Administrador',
+        recycler:   'Juan Reciclador',
+        supervisor: 'Ana Supervisora',
+        citizen:    'María Ciudadana',
       };
       await signIn({
-        id: cedula,
+        id: email,
         name: names[role],
         role,
         token: 'demo-token',
-        cedula,
+        email,
       });
       const destination =
-        role === 'admin'    ? '/(admin)'    :
-        role === 'recycler' ? '/(recycler)' :
+        role === 'admin'      ? '/(admin)'      :
+        role === 'recycler'   ? '/(recycler)'   :
+        role === 'supervisor' ? '/(supervisor)' :
         '/(citizen)';
       router.replace(destination as any);
     } catch {
-      setLoginError('Credenciales incorrectas. Verifica tu ID y contraseña.');
+      setLoginError('Credenciales incorrectas. Verifica tu correo y contraseña.');
     } finally {
       setLoading(false);
     }
@@ -104,12 +113,14 @@ export default function LoginScreen() {
         >
           {/* ── Logo y título ──────────────────────────────── */}
           <View style={styles.logoSection}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="sync-circle" size={48} color={theme.colors.primary} />
-            </View>
+            <Image
+              source={require('../../assets/logo.jpeg')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
             <Text style={styles.title}>
               Bienvenido a{' '}
-              <Text style={styles.titleGreen}>ZipaRecicla</Text>
+              <Text style={styles.titleGreen}>ECA App</Text>
             </Text>
             <Text style={styles.subtitle}>
               Gestiona tus residuos de forma inteligente
@@ -119,13 +130,14 @@ export default function LoginScreen() {
           {/* ── Formulario de login ────────────────────────── */}
           <View style={styles.formCard}>
             <CustomInput
-              label="Número de Identificación"
-              leftIcon="id-card-outline"
-              placeholder="Ingrese su ID"
-              value={cedula}
-              onChangeText={setCedula}
-              keyboardType="numeric"
-              error={cedulaError}
+              label="Correo Electrónico"
+              leftIcon="mail-outline"
+              placeholder="correo@ejemplo.com"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              error={emailError}
               containerStyle={styles.inputSpacing}
             />
 
@@ -200,13 +212,9 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.huge,
     paddingBottom: theme.spacing.xxxl,
   },
-  logoCircle: {
-    width: 88,
-    height: 88,
-    borderRadius: theme.radius.circle,
-    backgroundColor: theme.colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
+  logo: {
+    width: 160,
+    height: 160,
     marginBottom: theme.spacing.xl,
   },
   title: {

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
@@ -22,7 +23,7 @@ type RegisterRole = Extract<UserRole, 'citizen' | 'recycler'>;
 
 interface FormErrors {
   name: string;
-  cedula: string;
+  email: string;
   phone: string;
   role: string;
 }
@@ -31,30 +32,30 @@ export default function RegisterScreen() {
   const router = useRouter();
 
   const [name, setName] = useState('');
-  const [cedula, setCedula] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<RegisterRole | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({
     name: '',
-    cedula: '',
+    email: '',
     phone: '',
     role: '',
   });
 
   function validate(): boolean {
-    const newErrors: FormErrors = { name: '', cedula: '', phone: '', role: '' };
+    const newErrors: FormErrors = { name: '', email: '', phone: '', role: '' };
     let valid = true;
 
     if (!name.trim()) {
       newErrors.name = 'Ingrese su nombre completo';
       valid = false;
     }
-    if (!cedula.trim()) {
-      newErrors.cedula = 'Ingrese su número de cédula';
+    if (!email.trim()) {
+      newErrors.email = 'Ingrese su correo electrónico';
       valid = false;
-    } else if (cedula.trim().length < 6) {
-      newErrors.cedula = 'La cédula debe tener al menos 6 dígitos';
+    } else if (!email.includes('@')) {
+      newErrors.email = 'Ingrese un correo electrónico válido';
       valid = false;
     }
     if (!phone.trim()) {
@@ -78,7 +79,7 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       // ⚠️ Reemplazar con llamada real a la API de registro:
-      // await AuthApi.register({ name, cedula, phone, role });
+      // await AuthApi.register({ name, email, phone, role });
       await new Promise((r) => setTimeout(r, 800));
       router.push({
         pathname: '/(auth)/verify-code',
@@ -122,10 +123,12 @@ export default function RegisterScreen() {
 
           {/* ── Logo y título ──────────────────────────────── */}
           <View style={styles.logoSection}>
-            <View style={styles.logoCircle}>
-              <Ionicons name="sync-circle" size={36} color={theme.colors.primary} />
-            </View>
-            <Text style={styles.title}>Únete a ZipaRecicla</Text>
+            <Image
+              source={require('../../assets/logo.jpeg')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <Text style={styles.title}>Únete a ECA App</Text>
             <Text style={styles.subtitle}>
               Completa tus datos para empezar a transformar el planeta.
             </Text>
@@ -142,13 +145,14 @@ export default function RegisterScreen() {
             error={errors.name}
           />
           <CustomInput
-            label="Número de Cédula"
-            leftIcon="id-card-outline"
-            placeholder="123456789"
-            value={cedula}
-            onChangeText={setCedula}
-            keyboardType="numeric"
-            error={errors.cedula}
+            label="Correo Electrónico"
+            leftIcon="mail-outline"
+            placeholder="correo@ejemplo.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={errors.email}
           />
           <CustomInput
             label="Número de Teléfono"
@@ -244,13 +248,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: theme.spacing.xxl,
   },
-  logoCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: theme.radius.circle,
-    backgroundColor: theme.colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
+  logo: {
+    width: 100,
+    height: 100,
     marginBottom: theme.spacing.lg,
   },
   title: {

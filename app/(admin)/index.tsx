@@ -24,16 +24,16 @@ interface QuickAction {
 }
 
 const RECENT_ALERTS: AlertRow[] = [
-  { id: '1', title: 'Pesaje sin confirmar',   body: '3 pesajes del reciclador Juan Pérez llevan más de 24 h pendientes.',  severity: 'warning', timestamp: 'Hace 10 min' },
-  { id: '2', title: 'Ruta bloqueada',         body: 'La parada #15 de la ruta "Centro Histórico" reporta acceso bloqueado.', severity: 'error',   timestamp: 'Hace 40 min' },
-  { id: '3', title: 'Nuevo reciclador',       body: 'María González completó el registro y espera aprobación.',              severity: 'info',    timestamp: 'Hace 1 h'   },
+  { id: '1', title: 'Pesaje pendiente de aprobación', body: '3 pesajes registrados esperan confirmación del reciclador.',          severity: 'warning', timestamp: 'Hace 10 min' },
+  { id: '2', title: 'Ruta bloqueada',                 body: 'La parada #15 de la ruta "Centro Histórico" reporta acceso bloqueado.', severity: 'error',   timestamp: 'Hace 40 min' },
+  { id: '3', title: 'Nuevo reciclador',               body: 'María González completó el registro y espera aprobación.',              severity: 'info',    timestamp: 'Hace 1 h'   },
 ];
 
 const QUICK_ACTIONS: QuickAction[] = [
-  { icon: 'checkmark-done-outline',  label: 'Validar Pesajes', route: '/(admin)/validate', color: theme.colors.success, bgColor: theme.colors.successLight },
-  { icon: 'map-outline',             label: 'Rutas',           route: '/(admin)/routes',   color: theme.colors.info,    bgColor: theme.colors.infoLight    },
-  { icon: 'people-outline',          label: 'Usuarios',        route: '/(admin)/users',    color: theme.colors.primary, bgColor: theme.colors.primaryLight  },
-  { icon: 'bar-chart-outline',       label: 'Reportes',        route: '/(admin)/reports',  color: theme.colors.warning, bgColor: theme.colors.warningLight  },
+  { icon: 'scale-outline',     label: 'Registrar Pesaje', route: '/(admin)/new-weighing', color: theme.colors.success, bgColor: theme.colors.successLight },
+  { icon: 'map-outline',       label: 'Rutas',            route: '/(admin)/routes',       color: theme.colors.info,    bgColor: theme.colors.infoLight    },
+  { icon: 'people-outline',    label: 'Usuarios',         route: '/(admin)/users',        color: theme.colors.primary, bgColor: theme.colors.primaryLight  },
+  { icon: 'bar-chart-outline', label: 'Reportes',         route: '/(admin)/reports',      color: theme.colors.warning, bgColor: theme.colors.warningLight  },
 ];
 
 const SEVERITY_CONFIG = {
@@ -63,7 +63,7 @@ export default function AdminHomeScreen() {
           </View>
           <TouchableOpacity
             style={styles.notifBtn}
-            onPress={() => router.push('/(admin)/validate' as any)}
+            onPress={() => router.push('/(admin)/new-weighing' as any)}
           >
             <Ionicons name="notifications-outline" size={24} color={theme.colors.textPrimary} />
             <View style={styles.notifDot} />
@@ -113,9 +113,9 @@ export default function AdminHomeScreen() {
           />
           <StatCard
             variant="compact"
-            label="Pendientes"
+            label="Por confirmar"
             value="3"
-            icon="time-outline"
+            icon="hourglass-outline"
             iconColor={theme.colors.error}
             iconBgColor={theme.colors.errorLight}
             style={styles.statCardHalf}
@@ -143,8 +143,8 @@ export default function AdminHomeScreen() {
         {/* ── Alertas recientes ─────────────────────────────── */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Alertas Recientes</Text>
-          <TouchableOpacity onPress={() => router.push('/(admin)/validate' as any)}>
-            <Text style={styles.sectionLink}>Validar pendientes</Text>
+          <TouchableOpacity onPress={() => router.push('/(admin)/new-weighing' as any)}>
+            <Text style={styles.sectionLink}>Registrar pesaje</Text>
           </TouchableOpacity>
         </View>
 

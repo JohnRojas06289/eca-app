@@ -28,11 +28,9 @@ export default function CitizenLayout() {
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          borderTopWidth: 0,
-          height: Platform.OS === 'ios'
-            ? theme.sizes.tabBarHeightIos
-            : theme.sizes.tabBarHeight,
-          paddingBottom: Platform.OS === 'ios' ? 24 : theme.spacing.sm,
+          borderTopWidth: 2,
+          borderTopColor: theme.colors.separator,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
           paddingTop: theme.spacing.sm,
           ...theme.shadows.md,
         },
@@ -46,8 +44,8 @@ export default function CitizenLayout() {
         name="index"
         options={{
           title: 'Inicio',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -55,8 +53,8 @@ export default function CitizenLayout() {
         name="routes"
         options={{
           title: 'Rutas',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'map' : 'map-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -64,8 +62,8 @@ export default function CitizenLayout() {
         name="weighings"
         options={{
           title: 'Pesajes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="scale-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'scale' : 'scale-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -73,8 +71,8 @@ export default function CitizenLayout() {
         name="profile"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
           ),
         }}
       />

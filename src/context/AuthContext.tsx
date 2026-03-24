@@ -1,14 +1,14 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type UserRole = 'citizen' | 'recycler' | 'admin';
+export type UserRole = 'citizen' | 'recycler' | 'admin' | 'supervisor';
 
 export interface AuthUser {
   id: string;
   name: string;
   role: UserRole;
   token: string;
-  cedula?: string;
+  email?: string;
   phone?: string;
   association?: string;
   avatarUrl?: string;

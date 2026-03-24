@@ -140,9 +140,9 @@ export default function CitizenProfileScreen() {
         <Text style={styles.sectionLabel}>INFORMACIÓN PERSONAL</Text>
         <View style={styles.sectionCard}>
           <InfoRow
-            icon="id-card-outline"
-            label="Cédula"
-            value={user?.cedula ?? '1.023.456.789'}
+            icon="mail-outline"
+            label="Correo"
+            value={user?.email ?? 'correo@ejemplo.com'}
           />
           <View style={styles.rowDivider} />
           <InfoRow

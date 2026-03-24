@@ -27,11 +27,9 @@ export default function AdminLayout() {
         tabBarInactiveTintColor: theme.colors.textMuted,
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
-          borderTopWidth: 0,
-          height: Platform.OS === 'ios'
-            ? theme.sizes.tabBarHeightIos
-            : theme.sizes.tabBarHeight,
-          paddingBottom: Platform.OS === 'ios' ? 24 : theme.spacing.sm,
+          borderTopWidth: 2,
+          borderTopColor: theme.colors.separator,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
           paddingTop: theme.spacing.sm,
           ...theme.shadows.md,
         },
@@ -45,8 +43,8 @@ export default function AdminLayout() {
         name="index"
         options={{
           title: 'Inicio',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'home' : 'home-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -54,8 +52,8 @@ export default function AdminLayout() {
         name="users"
         options={{
           title: 'Usuarios',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'people' : 'people-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -63,8 +61,8 @@ export default function AdminLayout() {
         name="reports"
         options={{
           title: 'Reportes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bar-chart-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'bar-chart' : 'bar-chart-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -72,8 +70,8 @@ export default function AdminLayout() {
         name="settings"
         options={{
           title: 'Ajustes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
           ),
         }}
       />
@@ -83,6 +81,7 @@ export default function AdminLayout() {
       <Tabs.Screen name="user-detail" options={{ href: null }} />
       <Tabs.Screen name="impact" options={{ href: null }} />
       <Tabs.Screen name="validate" options={{ href: null }} />
+      <Tabs.Screen name="new-weighing" options={{ href: null }} />
     </Tabs>
   );
 }

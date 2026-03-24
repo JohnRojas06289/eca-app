@@ -51,10 +51,14 @@ const TOP_RECYCLERS: RecyclerStat[] = [
   { name: 'Sofía Vargas',    kg: 760,  routes: 28 },
 ];
 
-const TOTAL_KG     = 12_450;
-const TOTAL_VALUE  = 8_960_000;
-const TREES_EQUIV  = 312;
-const CO2_KG       = 5_980;
+const TOTAL_KG             = 12_450;
+const TOTAL_VALUE          = 8_960_000;
+const TREES_EQUIV          = 312;
+const CO2_KG               = 5_980;
+const COMPRAS_RECICLADORES = 5_580_000;  // COP pagado a recicladores
+const VENTAS_MERCADO       = 8_960_000;  // COP obtenido en ventas
+const MARGEN               = VENTAS_MERCADO - COMPRAS_RECICLADORES;
+const MARGEN_PCT           = Math.round((MARGEN / VENTAS_MERCADO) * 100);
 
 export default function AdminReportsScreen() {
   const router = useRouter();
@@ -123,26 +127,91 @@ export default function AdminReportsScreen() {
         {/* ── KPIs globales ────────────────────────────────── */}
         <View style={styles.kpiGrid}>
           <View style={styles.kpiCard}>
-            <Ionicons name="scale-outline" size={20} color={theme.colors.primary} />
-            <Text style={styles.kpiValue}>{TOTAL_KG.toLocaleString('es-CO')}</Text>
-            <Text style={styles.kpiLabel}>kg Recolectados</Text>
+            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.primaryLight }]}>
+              <Ionicons name="scale-outline" size={22} color={theme.colors.primary} />
+            </View>
+            <Text style={styles.kpiValue}>{TOTAL_KG.toLocaleString('es-CO')} kg</Text>
+            <Text style={styles.kpiLabel}>Material recolectado</Text>
           </View>
           <View style={styles.kpiCard}>
-            <Ionicons name="cash-outline" size={20} color={theme.colors.warning} />
-            <Text style={styles.kpiValue}>
-              ${(TOTAL_VALUE / 1_000_000).toFixed(1)}M
-            </Text>
-            <Text style={styles.kpiLabel}>Valor COP</Text>
+            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.warningLight }]}>
+              <Ionicons name="cash-outline" size={22} color={theme.colors.warning} />
+            </View>
+            <Text style={styles.kpiValue}>${(TOTAL_VALUE / 1_000_000).toFixed(2)}M</Text>
+            <Text style={styles.kpiLabel}>Ventas COP</Text>
           </View>
           <View style={styles.kpiCard}>
-            <Ionicons name="leaf-outline" size={20} color={theme.colors.success} />
-            <Text style={styles.kpiValue}>{TREES_EQUIV}</Text>
-            <Text style={styles.kpiLabel}>Árboles equiv.</Text>
+            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.successLight }]}>
+              <Ionicons name="leaf-outline" size={22} color={theme.colors.success} />
+            </View>
+            <Text style={styles.kpiValue}>{TREES_EQUIV} árboles</Text>
+            <Text style={styles.kpiLabel}>Equivalente ambiental</Text>
           </View>
           <View style={styles.kpiCard}>
-            <Ionicons name="cloud-outline" size={20} color={theme.colors.info} />
-            <Text style={styles.kpiValue}>{CO2_KG.toLocaleString('es-CO')}</Text>
-            <Text style={styles.kpiLabel}>kg CO₂ evitado</Text>
+            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.infoLight }]}>
+              <Ionicons name="cloud-outline" size={22} color={theme.colors.info} />
+            </View>
+            <Text style={styles.kpiValue}>{CO2_KG.toLocaleString('es-CO')} kg</Text>
+            <Text style={styles.kpiLabel}>CO₂ evitado</Text>
+          </View>
+        </View>
+
+        {/* ── Comparativo Compras / Ventas ──────────────────── */}
+        <Text style={styles.sectionTitle}>Comparativo Compras / Ventas</Text>
+        <View style={[styles.flowCard, { borderLeftColor: '#E65100' }]}>
+          <View style={styles.flowRow}>
+            <View style={[styles.flowIconBg, { backgroundColor: '#FFF3E0' }]}>
+              <Ionicons name="arrow-down-circle-outline" size={22} color="#E65100" />
+            </View>
+            <View style={styles.flowInfo}>
+              <Text style={styles.flowLabel}>Compras a Recicladores</Text>
+              <Text style={[styles.flowAmount, { color: '#E65100' }]}>
+                ${(COMPRAS_RECICLADORES / 1_000_000).toFixed(2)}M COP
+              </Text>
+            </View>
+          </View>
+        </View>
+        <View style={[styles.flowCard, { borderLeftColor: theme.colors.success }]}>
+          <View style={styles.flowRow}>
+            <View style={[styles.flowIconBg, { backgroundColor: theme.colors.successLight }]}>
+              <Ionicons name="arrow-up-circle-outline" size={22} color={theme.colors.success} />
+            </View>
+            <View style={styles.flowInfo}>
+              <Text style={styles.flowLabel}>Ventas al Mercado</Text>
+              <Text style={[styles.flowAmount, { color: theme.colors.success }]}>
+                ${(VENTAS_MERCADO / 1_000_000).toFixed(2)}M COP
+              </Text>
+            </View>
+          </View>
+        </View>
+        {/* Barra visual proporcional */}
+        <View style={styles.compareBarCard}>
+          <View style={styles.compareBar}>
+            <View style={[styles.barCompra, { flex: COMPRAS_RECICLADORES }]} />
+            <View style={[styles.barMargen, { flex: MARGEN }]} />
+          </View>
+          <View style={styles.barLegend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#E65100' }]} />
+              <Text style={styles.legendText}>
+                Compras {Math.round((COMPRAS_RECICLADORES / VENTAS_MERCADO) * 100)}%
+              </Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+              <Text style={styles.legendText}>Margen {MARGEN_PCT}%</Text>
+            </View>
+          </View>
+          <View style={[styles.flowRow, styles.marginRow]}>
+            <View style={[styles.flowIconBg, { backgroundColor: theme.colors.primaryLight }]}>
+              <Ionicons name="trending-up-outline" size={22} color={theme.colors.primary} />
+            </View>
+            <View style={styles.flowInfo}>
+              <Text style={styles.flowLabel}>Margen Operativo ({MARGEN_PCT}%)</Text>
+              <Text style={[styles.flowAmount, { color: theme.colors.primary }]}>
+                ${(MARGEN / 1_000_000).toFixed(2)}M COP
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -304,16 +373,24 @@ const styles = StyleSheet.create({
     width: '47%',
     flexGrow: 1,
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.xl,
     padding: theme.spacing.lg,
     alignItems: 'center',
     gap: theme.spacing.sm,
     ...theme.shadows.sm,
   },
+  kpiIconBg: {
+    width: 48,
+    height: 48,
+    borderRadius: theme.radius.circle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   kpiValue: {
-    fontSize: theme.typography.sizes.h2,
+    fontSize: theme.typography.sizes.h3,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textPrimary,
+    textAlign: 'center',
   },
   kpiLabel: {
     fontSize: theme.typography.sizes.small,
@@ -415,4 +492,78 @@ const styles = StyleSheet.create({
   },
 
   impactBtn: {},
+
+  // ── Compras / Ventas ─────────────────────────────────────
+  flowCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+    borderLeftWidth: 4,
+    ...theme.shadows.sm,
+  },
+  flowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  flowIconBg: {
+    width: 44,
+    height: 44,
+    borderRadius: theme.radius.circle,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  flowInfo: { flex: 1 },
+  flowLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  flowAmount: {
+    fontSize: theme.typography.sizes.h3,
+    fontWeight: theme.typography.weights.bold,
+  },
+  compareBarCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.xl,
+    marginBottom: theme.spacing.xxl,
+    ...theme.shadows.sm,
+  },
+  compareBar: {
+    flexDirection: 'row',
+    height: 14,
+    borderRadius: 7,
+    overflow: 'hidden',
+    marginBottom: theme.spacing.md,
+  },
+  barCompra: { backgroundColor: '#E65100' },
+  barMargen: { backgroundColor: theme.colors.primary },
+  barLegend: {
+    flexDirection: 'row',
+    gap: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.weights.medium,
+  },
+  marginRow: {
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.separator,
+    paddingTop: theme.spacing.lg,
+  },
 });

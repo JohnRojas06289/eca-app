@@ -18,20 +18,20 @@ import { CustomInput } from '@/src/components/CustomInput';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const [cedula, setCedula] = useState('');
-  const [cedulaError, setCedulaError] = useState('');
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
   const [loading, setLoading] = useState(false);
 
   function validate(): boolean {
-    if (!cedula.trim()) {
-      setCedulaError('Ingrese su número de cédula');
+    if (!email.trim()) {
+      setEmailError('Ingrese su correo electrónico');
       return false;
     }
-    if (cedula.trim().length < 6) {
-      setCedulaError('La cédula debe tener al menos 6 dígitos');
+    if (!email.includes('@')) {
+      setEmailError('Ingrese un correo electrónico válido');
       return false;
     }
-    setCedulaError('');
+    setEmailError('');
     return true;
   }
 
@@ -40,14 +40,14 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     try {
       // ⚠️ Reemplazar con llamada real a la API:
-      // await AuthApi.sendRecoveryCode({ cedula });
+      // await AuthApi.sendRecoveryCode({ email });
       await new Promise((r) => setTimeout(r, 800));
       router.push({
         pathname: '/(auth)/verify-code',
-        params: { flow: 'forgot', cedula },
+        params: { flow: 'forgot', email },
       });
     } catch {
-      setCedulaError('No encontramos una cuenta con esa cédula.');
+      setEmailError('No encontramos una cuenta con ese correo.');
     } finally {
       setLoading(false);
     }
@@ -93,19 +93,20 @@ export default function ForgotPasswordScreen() {
             </View>
             <Text style={styles.title}>Recuperar Contraseña</Text>
             <Text style={styles.subtitle}>
-              Ingresa tu número de cédula para recibir un código de recuperación
+              Ingresa tu correo electrónico para recibir un código de recuperación
             </Text>
           </View>
 
           {/* ── Formulario ────────────────────────────────── */}
           <CustomInput
-            label="Número de Cédula"
-            leftIcon="id-card-outline"
-            placeholder="Ej: 123456789"
-            value={cedula}
-            onChangeText={setCedula}
-            keyboardType="numeric"
-            error={cedulaError}
+            label="Correo Electrónico"
+            leftIcon="mail-outline"
+            placeholder="correo@ejemplo.com"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            error={emailError}
           />
 
           <CustomButton

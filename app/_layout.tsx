@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '@/src/hooks/useAuth';
 import { theme } from '@/src/theme/theme';
+import { ChatBot } from '@/src/components/ChatBot';
 
 /**
  * Layout raíz de la app.
@@ -37,7 +38,8 @@ function RootNavigator() {
     const inRoleGroup =
       currentGroup === '(citizen)' ||
       currentGroup === '(recycler)' ||
-      currentGroup === '(admin)';
+      currentGroup === '(admin)'   ||
+      currentGroup === '(supervisor)';
 
     if (!user) {
       // No autenticado: forzar a pantalla de login
@@ -48,17 +50,20 @@ function RootNavigator() {
     }
 
     // Autenticado: redirigir al grupo de su rol si no está ya ahí
-    const roleToGroup: Record<string, '/(citizen)' | '/(recycler)' | '/(admin)'> = {
-      citizen: '/(citizen)',
-      recycler: '/(recycler)',
-      admin: '/(admin)',
+    const roleToGroup: Record<string, '/(citizen)' | '/(recycler)' | '/(admin)' | '/(supervisor)'> = {
+      citizen:    '/(citizen)',
+      recycler:   '/(recycler)',
+      admin:      '/(admin)',
+      supervisor: '/(supervisor)',
     };
 
     const targetGroup = roleToGroup[user.role];
     const expectedSegment = `(${user.role})`;
 
+    if (!targetGroup) return;
+
     if (inAuthGroup || (inRoleGroup && currentGroup !== expectedSegment)) {
-      router.replace(targetGroup);
+      router.replace(targetGroup as any);
     }
   }, [user, isLoading, segments]);
 
@@ -72,19 +77,28 @@ function RootNavigator() {
   }
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-      {/* Grupo de autenticación (Login, Registro, Recuperar contraseña) */}
-      <Stack.Screen name="(auth)" />
+    <View style={styles.root}>
+      <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+        {/* Grupo de autenticación (Login, Registro, Recuperar contraseña) */}
+        <Stack.Screen name="(auth)" />
 
-      {/* Grupos por rol */}
-      <Stack.Screen name="(citizen)" />
-      <Stack.Screen name="(recycler)" />
-      <Stack.Screen name="(admin)" />
-    </Stack>
+        {/* Grupos por rol */}
+        <Stack.Screen name="(citizen)" />
+        <Stack.Screen name="(recycler)" />
+        <Stack.Screen name="(admin)" />
+        <Stack.Screen name="(supervisor)" />
+      </Stack>
+
+      {/* Chatbot flotante — visible en todas las pantallas autenticadas */}
+      <ChatBot />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
