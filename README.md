@@ -1,6 +1,17 @@
-# ZipaRecicla — ECA Zipaquirá
+# ECA App — Estación de Clasificación y Aprovechamiento
 
-Aplicación móvil para la Estación de Clasificación y Aprovechamiento (ECA) de residuos sólidos del municipio de Zipaquirá. Gestiona tres roles: **Ciudadano**, **Reciclador** y **Administrador**.
+Aplicación móvil para la gestión operativa de una ECA (Estación de Clasificación y Aprovechamiento de Residuos Sólidos) en Colombia. Desarrollada con React Native + Expo, soporta cuatro roles de usuario con flujos independientes y un asistente de IA integrado.
+
+---
+
+## Roles y accesos
+
+| Rol           | Acceso                                                                 |
+|---------------|------------------------------------------------------------------------|
+| Administrador | Registrar pesajes, validar, reportes compra/venta, usuarios, ajustes   |
+| Reciclador    | Confirmar pesajes asignados, historial, rutas, perfil                  |
+| Supervisor    | Dashboard de KPIs y comparativo compras/ventas (solo lectura)          |
+| Ciudadano     | Portal informativo, rutas de recolección, historial, PQRS, perfil      |
 
 ---
 
@@ -16,12 +27,24 @@ Aplicación móvil para la Estación de Clasificación y Aprovechamiento (ECA) d
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/ECA.git
-cd ECA
+git clone https://github.com/tu-usuario/eca-app.git
+cd eca-app
 
 # 2. Instalar dependencias
 npm install --legacy-peer-deps
 ```
+
+---
+
+## Variables de entorno
+
+Crea un archivo `.env` en la raíz del proyecto:
+
+```env
+EXPO_PUBLIC_GEMINI_API_KEY="tu_api_key_aqui"
+```
+
+Obtén tu API key en [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 ---
 
@@ -31,21 +54,26 @@ npm install --legacy-peer-deps
 npx expo start
 ```
 
-Se abrirá el Metro Bundler en la terminal. Escanea el código QR con la app **Expo Go** en tu celular (debe estar en la misma red Wi-Fi que el computador).
+Se abrirá el Metro Bundler en la terminal. Escanea el código QR con **Expo Go** en tu celular (debe estar en la misma red Wi-Fi que el computador).
 
 ---
 
 ## Credenciales de prueba
 
-La app arranca en la pantalla de login. Ingresa cualquier cédula y contraseña (sin mínimo de caracteres):
+El rol se determina automáticamente por el prefijo del correo. La contraseña puede ser cualquier texto.
 
-| Rol           | Cédula (ejemplo) | Contraseña  |
-|---------------|------------------|-------------|
-| Administrador | `9000000001`     | cualquiera  |
-| Reciclador    | `8000000001`     | cualquiera  |
-| Ciudadano     | `1000000001`     | cualquiera  |
+| Rol           | Correo de ejemplo         | Contraseña |
+|---------------|---------------------------|------------|
+| Administrador | `admin@empresa.com`       | cualquiera |
+| Reciclador    | `recycler@empresa.com`    | cualquiera |
+| Supervisor    | `supervisor@empresa.com`  | cualquiera |
+| Ciudadano     | `usuario@gmail.com`       | cualquiera |
 
-> El rol se determina por el primer dígito de la cédula: `9` → Admin, `8` → Reciclador, otro → Ciudadano.
+---
+
+## Asistente IA (Chatbot)
+
+La app incluye un chatbot flotante powered by **Gemini 2.5 Flash** accesible desde cualquier pantalla autenticada. Cada rol tiene preguntas sugeridas predefinidas y la memoria del chat se reinicia al cambiar de sesión.
 
 ---
 
@@ -54,17 +82,19 @@ La app arranca en la pantalla de login. Ingresa cualquier cédula y contraseña 
 ```
 eca-app/
 ├── app/
-│   ├── (auth)/          # Pantallas de autenticación (login, registro, recuperar contraseña)
-│   ├── (citizen)/       # Portal del ciudadano (9 pantallas)
-│   ├── (recycler)/      # Panel del reciclador (9 pantallas)
-│   ├── (admin)/         # Panel administrativo (8 pantallas)
+│   ├── (auth)/          # Login, registro, recuperar contraseña
+│   ├── (citizen)/       # Portal ciudadano (inicio, rutas, pesajes, perfil, PQRS, etc.)
+│   ├── (recycler)/      # Panel reciclador (inicio, validar pesajes, rutas, perfil)
+│   ├── (admin)/         # Panel admin (dashboard, pesajes, reportes, usuarios, ajustes)
+│   ├── (supervisor)/    # Panel supervisor (KPIs, comparativo compras/ventas)
 │   └── _layout.tsx      # AuthProvider + guard de autenticación y redirección por rol
 ├── src/
-│   ├── components/      # Componentes reutilizables (CustomButton, CustomInput, StatCard, etc.)
-│   ├── context/         # AuthContext — estado global de sesión compartido entre todas las pantallas
-│   ├── hooks/           # useAuth — re-exporta el contexto para uso en componentes
-│   └── theme/           # Design tokens (colores, tipografía, espaciados, radios, sombras)
-├── assets/              # Íconos y splash screen
+│   ├── components/      # ChatBot y componentes reutilizables
+│   ├── context/         # AuthContext — sesión global
+│   ├── hooks/           # useAuth
+│   └── theme/           # Design tokens (colores, tipografía, espaciados, sombras)
+├── assets/              # Logo y recursos gráficos
+├── .env                 # API keys (no se sube al repositorio)
 ├── app.json             # Configuración de Expo
 └── package.json
 ```
@@ -90,4 +120,4 @@ Busca los comentarios `⚠️ Reemplazar` en el código para identificar todos l
 grep -r "Reemplazar" app/ src/
 ```
 
-Cada uno indica qué llamada de API debe reemplazar el mock actual.
+Cada comentario indica qué llamada de API debe reemplazar el mock actual.
