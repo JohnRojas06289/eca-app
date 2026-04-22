@@ -17,7 +17,10 @@ import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
 import { CustomInput } from '@/src/components/CustomInput';
 import { useAuth } from '@/src/hooks/useAuth';
+import type { UserRole } from '@/src/hooks/useAuth';
 import { isWeb } from '@/src/theme/responsive';
+import { API_BASE_URL, ENABLE_DEMO_LOGIN, USE_DEMO_AUTH } from '@/src/config/env';
+import { loginWithApi } from '@/src/services/auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -53,7 +56,9 @@ export default function LoginScreen() {
     return valid;
   }
 
-  async function handleQuickLogin(role: 'admin' | 'recycler' | 'supervisor' | 'citizen') {
+  async function handleQuickLogin(role: UserRole) {
+    if (!ENABLE_DEMO_LOGIN) return;
+
     const profiles = {
       admin:      { name: 'Carlos Administrador', email: 'admin@demo.com' },
       recycler:   { name: 'Juan Reciclador',       email: 'recycler@demo.com' },
@@ -70,35 +75,39 @@ export default function LoginScreen() {
     setLoading(true);
     setLoginError('');
     try {
-      // ⚠️ Reemplazar con la llamada real a tu API de autenticación:
-      // const response = await AuthApi.login({ email, password });
-      // await signIn(response.user);
-      //
-      // Demo — detecta rol por prefijo del correo:
-      //   admin@...      → admin
-      //   recycler@...   → recycler
-      //   supervisor@... → supervisor
-      //   cualquier otro → citizen
-      await new Promise((r) => setTimeout(r, 600));
-      const prefix = email.split('@')[0].toLowerCase();
-      const role =
-        prefix === 'admin'      ? 'admin'      :
-        prefix === 'recycler'   ? 'recycler'   :
-        prefix === 'supervisor' ? 'supervisor' :
-        'citizen';
-      const names: Record<string, string> = {
-        admin:      'Carlos Administrador',
-        recycler:   'Juan Reciclador',
-        supervisor: 'Ana Supervisora',
-        citizen:    'María Ciudadana',
-      };
-      await signIn({
-        id: email,
-        name: names[role],
-        role,
-        token: 'demo-token',
-        email,
-      });
+      let role: UserRole;
+
+      if (API_BASE_URL && !USE_DEMO_AUTH) {
+        const user = await loginWithApi({ email, password });
+        role = user.role;
+        await signIn(user);
+      } else if (USE_DEMO_AUTH) {
+        // Modo demo controlado por env: útil para probar el frontend sin backend.
+        await new Promise((r) => setTimeout(r, 600));
+        const prefix = email.split('@')[0].toLowerCase();
+        role =
+          prefix === 'admin'      ? 'admin'      :
+          prefix === 'recycler'   ? 'recycler'   :
+          prefix === 'supervisor' ? 'supervisor' :
+          'citizen';
+        const names: Record<UserRole, string> = {
+          admin:      'Carlos Administrador',
+          recycler:   'Juan Reciclador',
+          supervisor: 'Ana Supervisora',
+          citizen:    'María Ciudadana',
+        };
+        await signIn({
+          id: email,
+          name: names[role],
+          role,
+          token: 'demo-token',
+          email,
+        });
+      } else {
+        setLoginError('El servicio de autenticación no está configurado.');
+        return;
+      }
+
       const destination =
         role === 'admin'      ? '/(admin)'      :
         role === 'recycler'   ? '/(recycler)'   :
@@ -200,44 +209,45 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── Acceso rápido demo ─────────────────────────── */}
-          <View style={styles.quickAccessSection}>
-            <Text style={styles.quickAccessLabel}>Acceso rápido demo</Text>
-            <View style={styles.quickAccessGrid}>
-              <TouchableOpacity
-                style={[styles.quickBtn, { backgroundColor: '#2DC84D' }]}
-                onPress={() => handleQuickLogin('admin')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="shield-checkmark-outline" size={16} color="#fff" />
-                <Text style={styles.quickBtnText}>Admin</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.quickBtn, { backgroundColor: '#2980B9' }]}
-                onPress={() => handleQuickLogin('recycler')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="bicycle-outline" size={16} color="#fff" />
-                <Text style={styles.quickBtnText}>Reciclador</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.quickBtn, { backgroundColor: '#8E44AD' }]}
-                onPress={() => handleQuickLogin('supervisor')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="bar-chart-outline" size={16} color="#fff" />
-                <Text style={styles.quickBtnText}>Supervisor</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.quickBtn, { backgroundColor: '#E67E22' }]}
-                onPress={() => handleQuickLogin('citizen')}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="person-outline" size={16} color="#fff" />
-                <Text style={styles.quickBtnText}>Ciudadano</Text>
-              </TouchableOpacity>
+          {ENABLE_DEMO_LOGIN && (
+            <View style={styles.quickAccessSection}>
+              <Text style={styles.quickAccessLabel}>Acceso rápido demo</Text>
+              <View style={styles.quickAccessGrid}>
+                <TouchableOpacity
+                  style={[styles.quickBtn, { backgroundColor: '#2DC84D' }]}
+                  onPress={() => handleQuickLogin('admin')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={16} color="#fff" />
+                  <Text style={styles.quickBtnText}>Admin</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickBtn, { backgroundColor: '#2980B9' }]}
+                  onPress={() => handleQuickLogin('recycler')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="bicycle-outline" size={16} color="#fff" />
+                  <Text style={styles.quickBtnText}>Reciclador</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickBtn, { backgroundColor: '#8E44AD' }]}
+                  onPress={() => handleQuickLogin('supervisor')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="bar-chart-outline" size={16} color="#fff" />
+                  <Text style={styles.quickBtnText}>Supervisor</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.quickBtn, { backgroundColor: '#E67E22' }]}
+                  onPress={() => handleQuickLogin('citizen')}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="person-outline" size={16} color="#fff" />
+                  <Text style={styles.quickBtnText}>Ciudadano</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

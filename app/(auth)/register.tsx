@@ -18,6 +18,8 @@ import { CustomButton } from '@/src/components/CustomButton';
 import { CustomInput } from '@/src/components/CustomInput';
 import { SelectableCard } from '@/src/components/SelectableCard';
 import type { UserRole } from '@/src/hooks/useAuth';
+import { API_BASE_URL, USE_DEMO_AUTH } from '@/src/config/env';
+import { registerWithApi } from '@/src/services/auth';
 
 type RegisterRole = Extract<UserRole, 'citizen' | 'recycler'>;
 
@@ -78,9 +80,12 @@ export default function RegisterScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      // ⚠️ Reemplazar con llamada real a la API de registro:
-      // await AuthApi.register({ name, email, phone, role });
-      await new Promise((r) => setTimeout(r, 800));
+      if (API_BASE_URL && !USE_DEMO_AUTH && role) {
+        await registerWithApi({ name, email, phone, role });
+      } else {
+        // Modo demo controlado por env: permite revisar el frontend sin backend.
+        await new Promise((r) => setTimeout(r, 800));
+      }
       router.push({
         pathname: '/(auth)/verify-code',
         params: { flow: 'register', phone: phone.slice(-4) },

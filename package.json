@@ -8,6 +8,8 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "build:web": "expo export --platform web",
+    "typecheck": "node node_modules/typescript/bin/tsc --noEmit",
+    "validate:web": "npm run typecheck && npm run build:web",
     "preview:web": "npx serve dist",
     "backend": "npm --prefix backend run dev"
   },

@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { useAuth } from '@/src/hooks/useAuth';
+import { API_BASE_URL, ENABLE_DEMO_CHAT } from '@/src/config/env';
 
 // ── Preguntas sugeridas por rol ───────────────────────────────────────────────
 const SUGGESTED_QUESTIONS: Record<string, string[]> = {
@@ -136,9 +137,6 @@ function getDemoResponse(text: string, role: string): string {
   }
   return DEMO_DEFAULT[role] ?? '¿En qué te puedo ayudar hoy?';
 }
-
-// ── Config backend ───────────────────────────────────────────────────────────
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Message {
@@ -293,10 +291,12 @@ export function ChatBot() {
         if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
         setConversationId(data.conversationId);
         reply = data.reply;
-      } else {
+      } else if (ENABLE_DEMO_CHAT) {
         // Modo demo — sin backend configurado
         await new Promise((r) => setTimeout(r, 700));
         reply = getDemoResponse(text, user?.role ?? 'citizen');
+      } else {
+        reply = 'El asistente no está configurado en este ambiente.';
       }
 
       const assistantMsg: Message = {
@@ -323,7 +323,7 @@ export function ChatBot() {
       setLoading(false);
       scrollToBottom();
     }
-  }, [user?.role]);
+  }, [conversationId, user?.id, user?.role]);
 
   async function handleSend() {
     await sendMessage(input);

@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
 import { useAuth } from '@/src/hooks/useAuth';
+import { USE_DEMO_AUTH } from '@/src/config/env';
 
 /**
  * Pantalla de éxito. Maneja dos variantes via search params:
@@ -24,9 +25,12 @@ export default function SuccessScreen() {
   const isPasswordReset = type === 'password';
 
   async function handleGoToDashboard() {
-    // ⚠️ Aquí el usuario ya completó registro — en producción el backend
-    // devuelve los datos del usuario para llamar signIn con datos reales.
-    // Demo: entramos como ciudadano por defecto tras el registro.
+    if (!USE_DEMO_AUTH) {
+      router.replace('/(auth)');
+      return;
+    }
+
+    // Modo demo: entramos como ciudadano por defecto tras el registro.
     await signIn({
       id: 'nuevo-usuario',
       name: 'Nuevo Usuario',
