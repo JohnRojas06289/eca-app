@@ -2,6 +2,15 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, useWindowDimensions } from 'react-native';
 import { createTabScreenOptions } from '@/src/theme/navigation';
+import { MobileMenu } from '@/src/components/MobileMenu';
+
+const RECYCLER_LINKS = [
+  { label: 'Inicio',   icon: 'home-outline'          as const, route: '/(recycler)' },
+  { label: 'Rutas',    icon: 'map-outline'            as const, route: '/(recycler)/routes' },
+  { label: 'Pesajes',  icon: 'scale-outline'          as const, route: '/(recycler)/weighings' },
+  { label: 'Alertas',  icon: 'notifications-outline'  as const, route: '/(recycler)/alerts' },
+  { label: 'Perfil',   icon: 'person-outline'         as const, route: '/(recycler)/profile' },
+];
 
 /**
  * Layout de tabs para el rol RECICLADOR (Reutilizador).
@@ -24,6 +33,8 @@ export default function RecyclerLayout() {
   const useDesktopRail = Platform.OS === 'web' && width >= 900;
 
   return (
+    <>
+    {!useDesktopRail && <MobileMenu links={RECYCLER_LINKS} />}
     <Tabs
       screenOptions={createTabScreenOptions(useDesktopRail)}
     >
@@ -80,5 +91,6 @@ export default function RecyclerLayout() {
       <Tabs.Screen name="prices" options={{ href: null }} />
       <Tabs.Screen name="validate" options={{ href: null }} />
     </Tabs>
+    </>
   );
 }
