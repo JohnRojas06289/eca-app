@@ -16,6 +16,8 @@ export type MaterialType =
   | 'metals'
   | 'organic'
   | 'paper'
+  | 'rcd'
+  | 'waste'
   | 'other';
 
 const MATERIAL_CONFIG: Record<
@@ -28,6 +30,8 @@ const MATERIAL_CONFIG: Record<
   metals:    { icon: 'construct-outline',   color: theme.colors.metals,     bgColor: theme.colors.metalsBg    },
   organic:   { icon: 'leaf-outline',        color: theme.colors.organic,    bgColor: theme.colors.organicBg   },
   paper:     { icon: 'document-text-outline', color: theme.colors.paper,   bgColor: theme.colors.paperBg     },
+  rcd:       { icon: 'hammer-outline',      color: theme.colors.rcd,        bgColor: theme.colors.rcdBg       },
+  waste:     { icon: 'trash-bin-outline',   color: theme.colors.waste,      bgColor: theme.colors.wasteBg     },
   other:     { icon: 'apps-outline',        color: theme.colors.textSecondary, bgColor: theme.colors.separator },
 };
 
@@ -166,6 +170,8 @@ const styles = StyleSheet.create({
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
     ...theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   iconContainer: {
     width: 48,

@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
+import { formatRelativeTime } from '@/src/utils/date';
 
 type MaterialType = 'plastic' | 'cardboard' | 'glass' | 'metals' | 'paper';
 
@@ -23,7 +24,7 @@ interface PendingWeighing {
   materialType: MaterialType;
   kg: number;
   pricePerKg: number;
-  timestamp: string;
+  date: Date;
   route: string;
   note?: string;
 }
@@ -36,11 +37,12 @@ const MATERIAL_CONFIG: Record<MaterialType, { icon: string; color: string; bgCol
   paper:     { icon: 'document-outline',      color: theme.colors.paper,     bgColor: theme.colors.paperBg     },
 };
 
+const now = new Date();
 // Mock de pesajes registrados por el admin esperando tu aprobación
 const INITIAL_WEIGHINGS: PendingWeighing[] = [
-  { id: '1', adminName: 'Carlos Administrador', material: 'Plástico PET',     materialType: 'plastic',   kg: 12.5, pricePerKg: 800,  timestamp: 'Hoy, 10:30 AM', route: 'Centro Histórico' },
-  { id: '2', adminName: 'Carlos Administrador', material: 'Cartón Corrugado', materialType: 'cardboard', kg: 45.0, pricePerKg: 350,  timestamp: 'Hoy, 09:15 AM', route: 'Centro Histórico', note: 'Cartón húmedo, se descontó 3 kg' },
-  { id: '3', adminName: 'Carlos Administrador', material: 'Aluminio',         materialType: 'metals',    kg: 3.4,  pricePerKg: 2200, timestamp: 'Ayer, 4:30 PM', route: 'San Pablo Norte'   },
+  { id: '1', adminName: 'Carlos Administrador', material: 'Plástico PET',     materialType: 'plastic',   kg: 12.5, pricePerKg: 800,  date: new Date(now.getTime() - 95 * 60 * 1000), route: 'Centro Histórico' },
+  { id: '2', adminName: 'Carlos Administrador', material: 'Cartón Corrugado', materialType: 'cardboard', kg: 45.0, pricePerKg: 350,  date: new Date(now.getTime() - 2.4 * 60 * 60 * 1000), route: 'Centro Histórico', note: 'Cartón húmedo, se descontó 3 kg' },
+  { id: '3', adminName: 'Carlos Administrador', material: 'Aluminio',         materialType: 'metals',    kg: 3.4,  pricePerKg: 2200, date: new Date(now.getTime() - 20 * 60 * 60 * 1000), route: 'San Pablo Norte'   },
 ];
 
 export default function RecyclerValidateScreen() {
@@ -174,7 +176,7 @@ export default function RecyclerValidateScreen() {
                 </View>
                 <View style={styles.detailItem}>
                   <Text style={styles.detailLabel}>HORA</Text>
-                  <Text style={styles.detailValue}>{w.timestamp}</Text>
+                  <Text style={styles.detailValue}>{formatRelativeTime(w.date)}</Text>
                 </View>
                 <View style={styles.detailItem}>
                   <Text style={styles.detailLabel}>VALOR</Text>

@@ -1,7 +1,7 @@
-import { Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@/src/theme/theme';
+import { Platform, useWindowDimensions } from 'react-native';
+import { createTabScreenOptions } from '@/src/theme/navigation';
 
 /**
  * Layout de tabs para el rol ADMINISTRADOR.
@@ -19,25 +19,12 @@ import { theme } from '@/src/theme/theme';
  *   validate       → Validar Pesajes pendientes
  */
 export default function AdminLayout() {
+  const { width } = useWindowDimensions();
+  const useDesktopRail = Platform.OS === 'web' && width >= 900;
+
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          borderTopWidth: 2,
-          borderTopColor: theme.colors.separator,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
-          paddingTop: theme.spacing.sm,
-          ...theme.shadows.md,
-        },
-        tabBarLabelStyle: {
-          fontSize: theme.typography.sizes.tiny,
-          fontWeight: theme.typography.weights.medium,
-        },
-      }}
+      screenOptions={createTabScreenOptions(useDesktopRail)}
     >
       <Tabs.Screen
         name="index"
@@ -82,6 +69,8 @@ export default function AdminLayout() {
       <Tabs.Screen name="impact" options={{ href: null }} />
       <Tabs.Screen name="validate" options={{ href: null }} />
       <Tabs.Screen name="new-weighing" options={{ href: null }} />
+      <Tabs.Screen name="alerts" options={{ href: null }} />
+      <Tabs.Screen name="prices" options={{ href: null }} />
     </Tabs>
   );
 }

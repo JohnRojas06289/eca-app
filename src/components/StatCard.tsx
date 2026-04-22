@@ -149,9 +149,10 @@ const styles = StyleSheet.create({
   // ── Hero ──────────────────────────────────────────────────────────────────
   heroCard: {
     backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.xl,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
     width: '100%',
+    ...theme.shadows.md,
   },
   heroLabel: {
     fontSize: theme.typography.sizes.small,
@@ -186,10 +187,12 @@ const styles = StyleSheet.create({
   // ── Compact ───────────────────────────────────────────────────────────────
   compactCard: {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.lg,
     flex: 1,
     ...theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   compactLabel: {
     fontSize: theme.typography.sizes.small,
@@ -208,10 +211,12 @@ const styles = StyleSheet.create({
   // ── Default ───────────────────────────────────────────────────────────────
   defaultCard: {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.lg,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.lg,
     width: '100%',
     ...theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   defaultHeader: {
     flexDirection: 'row',

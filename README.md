@@ -36,15 +36,45 @@ npm install --legacy-peer-deps
 
 ---
 
-## Variables de entorno
+## Variables de entorno (app móvil)
 
 Crea un archivo `.env` en la raíz del proyecto:
 
 ```env
-EXPO_PUBLIC_GEMINI_API_KEY="tu_api_key_aqui"
+EXPO_PUBLIC_API_BASE_URL="http://TU_IP_LOCAL:4000"
 ```
 
-Obtén tu API key en [Google AI Studio](https://aistudio.google.com/app/apikey).
+> En Android emulador usa `http://10.0.2.2:4000`.
+
+---
+
+## Backend IA + Base de datos (Gemini seguro)
+
+La key de Gemini ahora se configura en el backend (no en la app móvil).
+
+```bash
+cd backend
+npm install
+cp .env.example .env
+```
+
+En `backend/.env` configura:
+
+```env
+PORT=4000
+GEMINI_API_KEY="tu_api_key_real"
+GEMINI_MODEL="gemini-2.5-flash"
+CHAT_DB_PATH="./data/chat.db"
+```
+
+Levanta el backend:
+
+```bash
+cd backend
+npm run dev
+```
+
+La BD SQLite se crea automáticamente en `backend/data/chat.db`.
 
 ---
 
@@ -73,7 +103,8 @@ El rol se determina automáticamente por el prefijo del correo. La contraseña p
 
 ## Asistente IA (Chatbot)
 
-La app incluye un chatbot flotante powered by **Gemini 2.5 Flash** accesible desde cualquier pantalla autenticada. Cada rol tiene preguntas sugeridas predefinidas y la memoria del chat se reinicia al cambiar de sesión.
+La app incluye un chatbot flotante accesible desde cualquier pantalla autenticada.
+Ahora consume el endpoint backend `POST /api/chat`, donde se usa Gemini y se persiste historial por conversación en SQLite.
 
 ---
 

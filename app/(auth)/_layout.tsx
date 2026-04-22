@@ -1,4 +1,7 @@
 import { Stack } from 'expo-router';
+import { View, StyleSheet } from 'react-native';
+import { theme } from '@/src/theme/theme';
+import { isWeb, webLayout } from '@/src/theme/responsive';
 
 /**
  * Layout del flujo de autenticación.
@@ -16,14 +19,28 @@ import { Stack } from 'expo-router';
  */
 export default function AuthLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="register" />
-      <Stack.Screen name="forgot-password" />
-      <Stack.Screen name="verify-code" />
-      <Stack.Screen name="new-password" />
-      <Stack.Screen name="verified" />
-      <Stack.Screen name="success" />
-    </Stack>
+    <View style={[styles.shell, isWeb && styles.shellWeb]}>
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="register" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="verify-code" />
+        <Stack.Screen name="new-password" />
+        <Stack.Screen name="verified" />
+        <Stack.Screen name="success" />
+      </Stack>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  shellWeb: {
+    width: '100%',
+    maxWidth: webLayout.authMaxWidth,
+    alignSelf: 'center',
+  },
+});

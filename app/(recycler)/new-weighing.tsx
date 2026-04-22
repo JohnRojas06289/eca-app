@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
 
-type MaterialKey = 'plastic' | 'cardboard' | 'glass' | 'metals' | 'organic' | 'paper';
+type MaterialKey = 'plastic' | 'cardboard' | 'glass' | 'metals' | 'organic' | 'paper' | 'rcd' | 'waste';
 
 interface Material {
   key: MaterialKey;
@@ -35,6 +35,8 @@ const MATERIALS: Material[] = [
   { key: 'metals',    name: 'Metales',            unit: 'kg', icon: 'hardware-chip-outline',   color: theme.colors.metals,    bgColor: theme.colors.metalsBg,    pricePerKg: 2200 },
   { key: 'organic',   name: 'Orgánicos',          unit: 'kg', icon: 'leaf-outline',            color: theme.colors.organic,   bgColor: theme.colors.organicBg,   pricePerKg: 0    },
   { key: 'paper',     name: 'Papel Archivo',      unit: 'kg', icon: 'document-outline',        color: theme.colors.paper,     bgColor: theme.colors.paperBg,     pricePerKg: 500  },
+  { key: 'rcd',       name: 'RCD (Construcción)', unit: 'kg', icon: 'hammer-outline',          color: theme.colors.rcd,       bgColor: theme.colors.rcdBg,       pricePerKg: 0    },
+  { key: 'waste',     name: 'Rechazo',            unit: 'kg', icon: 'trash-bin-outline',       color: theme.colors.waste,     bgColor: theme.colors.wasteBg,     pricePerKg: 0    },
 ];
 
 export default function NewWeighingScreen() {

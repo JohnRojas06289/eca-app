@@ -17,6 +17,7 @@ import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
 import { CustomInput } from '@/src/components/CustomInput';
 import { useAuth } from '@/src/hooks/useAuth';
+import { isWeb } from '@/src/theme/responsive';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -50,6 +51,18 @@ export default function LoginScreen() {
     }
 
     return valid;
+  }
+
+  async function handleQuickLogin(role: 'admin' | 'recycler' | 'supervisor' | 'citizen') {
+    const profiles = {
+      admin:      { name: 'Carlos Administrador', email: 'admin@demo.com' },
+      recycler:   { name: 'Juan Reciclador',       email: 'recycler@demo.com' },
+      supervisor: { name: 'Ana Supervisora',        email: 'supervisor@demo.com' },
+      citizen:    { name: 'María Ciudadana',        email: 'citizen@demo.com' },
+    };
+    const { name, email } = profiles[role];
+    await signIn({ id: email, name, role, token: 'demo-token', email });
+    router.replace(`/(${role})` as any);
   }
 
   async function handleLogin() {
@@ -107,15 +120,15 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, isWeb && styles.scrollWeb]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {/* ── Logo y título ──────────────────────────────── */}
-          <View style={styles.logoSection}>
+          <View style={[styles.logoSection, isWeb && styles.logoSectionWeb]}>
             <Image
               source={require('../../assets/logo.jpeg')}
-              style={styles.logo}
+              style={[styles.logo, isWeb && styles.logoWeb]}
               resizeMode="contain"
             />
             <Text style={styles.title}>
@@ -128,7 +141,7 @@ export default function LoginScreen() {
           </View>
 
           {/* ── Formulario de login ────────────────────────── */}
-          <View style={styles.formCard}>
+          <View style={[styles.formCard, isWeb && styles.formCardWeb]}>
             <CustomInput
               label="Correo Electrónico"
               leftIcon="mail-outline"
@@ -186,6 +199,45 @@ export default function LoginScreen() {
               <Text style={styles.registerLink}>Regístrate</Text>
             </TouchableOpacity>
           </View>
+
+          {/* ── Acceso rápido demo ─────────────────────────── */}
+          <View style={styles.quickAccessSection}>
+            <Text style={styles.quickAccessLabel}>Acceso rápido demo</Text>
+            <View style={styles.quickAccessGrid}>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: '#2DC84D' }]}
+                onPress={() => handleQuickLogin('admin')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="shield-checkmark-outline" size={16} color="#fff" />
+                <Text style={styles.quickBtnText}>Admin</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: '#2980B9' }]}
+                onPress={() => handleQuickLogin('recycler')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="bicycle-outline" size={16} color="#fff" />
+                <Text style={styles.quickBtnText}>Reciclador</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: '#8E44AD' }]}
+                onPress={() => handleQuickLogin('supervisor')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="bar-chart-outline" size={16} color="#fff" />
+                <Text style={styles.quickBtnText}>Supervisor</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.quickBtn, { backgroundColor: '#E67E22' }]}
+                onPress={() => handleQuickLogin('citizen')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="person-outline" size={16} color="#fff" />
+                <Text style={styles.quickBtnText}>Ciudadano</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -205,6 +257,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.screen,
     paddingBottom: theme.spacing.huge,
   },
+  scrollWeb: {
+    justifyContent: 'center',
+    paddingTop: theme.spacing.xxxl,
+    paddingBottom: theme.spacing.xxxl,
+  },
 
   // ── Logo ────────────────────────────────────────────────
   logoSection: {
@@ -212,10 +269,19 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.huge,
     paddingBottom: theme.spacing.xxxl,
   },
+  logoSectionWeb: {
+    paddingTop: 0,
+    paddingBottom: theme.spacing.xl,
+  },
   logo: {
     width: 160,
     height: 160,
     marginBottom: theme.spacing.xl,
+  },
+  logoWeb: {
+    width: 128,
+    height: 128,
+    marginBottom: theme.spacing.lg,
   },
   title: {
     fontSize: theme.typography.sizes.h1,
@@ -236,10 +302,16 @@ const styles = StyleSheet.create({
   // ── Formulario ──────────────────────────────────────────
   formCard: {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.xl,
+    borderRadius: theme.radius.lg,
     padding: theme.spacing.xl,
-    ...theme.shadows.md,
+    ...theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
     marginBottom: theme.spacing.xxxl,
+  },
+  formCardWeb: {
+    borderRadius: theme.radius.xl,
+    padding: theme.spacing.xxl,
   },
   inputSpacing: {
     marginBottom: theme.spacing.md,
@@ -292,5 +364,38 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.body,
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.primary,
+  },
+
+  // ── Acceso rápido demo ──────────────────────────────────
+  quickAccessSection: {
+    marginTop: theme.spacing.xxxl,
+    alignItems: 'center',
+  },
+  quickAccessLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textMuted,
+    marginBottom: theme.spacing.md,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  quickAccessGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+  },
+  quickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.xl,
+    flexBasis: '47%',
+    flexGrow: 1,
+  },
+  quickBtnText: {
+    color: '#fff',
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
   },
 });

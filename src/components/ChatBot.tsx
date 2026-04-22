@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,31 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { useAuth } from '@/src/hooks/useAuth';
-
-// ── Configuración Gemini ─────────────────────────────────────────────────────
-const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY ?? '';
-const GEMINI_MODEL   = 'gemini-2.5-flash';
-const GEMINI_URL     = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-const SYSTEM_PROMPT = `Eres el asistente inteligente de una ECA (Estación de Clasificación y Aprovechamiento de Residuos Sólidos) en Colombia.
-
-Tu función es ayudar al administrador, recicladores, ciudadanía y supervisores — en el día a día del centro de reciclaje.
-
-Puedes ayudar con:
-- Consultas de inventario y materiales en bodega
-- Registro y seguimiento de pesajes de recicladores
-- Precios de compra y venta de materiales por kilo
-- Despachos y ventas a compradores
-- Reportes del día, la semana o el mes
-- Alertas de stock bajo o recicladores inactivos
-
-Reglas para responder:
-- Habla en español colombiano, de forma clara y directa
-- Respuestas cortas y al punto — máximo 4 oraciones
-- Los precios siempre en formato $XX.XXX COP/kg
-- Los pesos siempre en kilogramos (kg)
-- Si no tienes el dato exacto, dilo honestamente y orienta al usuario a dónde buscarlo
-- Nunca inventes cifras ni supongas datos que no tienes`;
 
 // ── Preguntas sugeridas por rol ───────────────────────────────────────────────
 const SUGGESTED_QUESTIONS: Record<string, string[]> = {
@@ -70,44 +45,107 @@ const SUGGESTED_QUESTIONS: Record<string, string[]> = {
   ],
 };
 
+// ── Respuestas demo quemadas por rol ─────────────────────────────────────────
+const DEMO_RESPONSES: Record<string, Array<{ keywords: string[]; reply: string }>> = {
+  admin: [
+    {
+      keywords: ['precio', 'mejor precio', 'semana', 'paga', 'vale', 'cuesta'],
+      reply: 'Esta semana el plástico PET lidera a $800 COP/kg, seguido del papel de archivo a $600/kg. El cartón está en $350/kg, el metal a $250/kg y el vidrio a $180/kg.',
+    },
+    {
+      keywords: ['pesaje', 'registrar', 'registro', 'nuevo pesaje', 'cómo registro'],
+      reply: 'Para registrar un pesaje: selecciona al reciclador, elige el material, ingresa el peso en kg y guarda. El reciclador recibirá una notificación para validarlo en la app dentro de las próximas 24 horas.',
+    },
+    {
+      keywords: ['inactivo', 'inactivos', 'sin actividad', 'no han entregado'],
+      reply: 'Este mes 3 recicladores no han registrado entregas: Pedro Martínez (12 días), Luis Herrera (9 días) y Rosa Cárdenas (8 días sin actividad). ¿Deseas enviarles una alerta desde la app?',
+    },
+    {
+      keywords: ['reporte', 'compras', 'ventas', 'interpreto', 'comparativo', 'informe'],
+      reply: 'El reporte compara los pagos a recicladores (compras) vs los ingresos de compradores mayoristas (ventas). El margen actual del mes es del 34%, lo que refleja una operación sólida para la ECA.',
+    },
+  ],
+  recycler: [
+    {
+      keywords: ['precio', 'pagan', 'mejor', 'kilo', 'valor', 'cuánto pagan'],
+      reply: 'Hoy el mejor precio es para el plástico PET: $800/kg. Le sigue el papel de archivo a $600/kg, el cartón a $350/kg, el metal a $250/kg y el vidrio a $180/kg. ¡El PET limpio paga más!',
+    },
+    {
+      keywords: ['confirmar', 'confirmo', 'validar', 'pesaje', 'admin registró'],
+      reply: 'Para confirmar tu pesaje: abre "Mis Pesajes", busca el registro pendiente y toca Confirmar. Tienes 24 horas para validarlo. Si hay un error en el peso, avísale al administrador.',
+    },
+    {
+      keywords: ['incidencia', 'reportar', 'problema', 'reporto'],
+      reply: 'Para reportar una incidencia ve a la sección Alertas y describe lo sucedido. El supervisor lo verá de inmediato y te contactará en menos de 2 horas. Guarda fotos como evidencia si es posible.',
+    },
+    {
+      keywords: ['generan', 'material', 'semana', 'más valor'],
+      reply: 'Esta semana el plástico PET y el papel de archivo generan más valor. Si tienes ambos materiales, sepáralos bien antes de entregarlos: el PET limpio y aplastado vale hasta un 20% más.',
+    },
+  ],
+  supervisor: [
+    {
+      keywords: ['total', 'ventas', 'mes', 'cuánto fue'],
+      reply: 'El total de ventas de abril es $4.820.000 COP, un 12% más que marzo. El material estrella fue plástico PET con 1.840 kg despachados a Reciplast Colombia S.A.S.',
+    },
+    {
+      keywords: ['margen', 'operativo', 'margen operativo'],
+      reply: 'El margen operativo actual es del 34.2%. Se pagó a recicladores $3.190.000 en compras y se recibieron $4.820.000 en ventas. Está dentro del rango esperado para una ECA municipal.',
+    },
+    {
+      keywords: ['activos', 'recicladores', 'cuántos', 'participación'],
+      reply: 'Este mes han participado 18 de los 21 recicladores registrados (86% de participación). Los 3 inactivos llevan más de 8 días sin registrar entregas y requieren seguimiento.',
+    },
+    {
+      keywords: ['comparativo', 'leo', 'leer', 'compras', 'ventas'],
+      reply: 'El comparativo muestra en verde los pagos a recicladores (compras) y en azul los ingresos por despachos (ventas). La diferencia entre ambos es el margen bruto operativo de la ECA.',
+    },
+  ],
+  citizen: [
+    {
+      keywords: ['separo', 'separar', 'residuos', 'basura', 'cómo separo'],
+      reply: 'Separa en 3 grupos: ♻️ Reciclables (papel, cartón, plástico, vidrio, metal) en bolsa blanca; 🌿 Orgánicos (restos de comida) en bolsa verde; ⚫ No reciclables en bolsa negra. ¡Así ayudas mucho!',
+    },
+    {
+      keywords: ['camión', 'recolección', 'pasa', 'cuándo', 'horario'],
+      reply: 'El camión de reciclaje pasa los martes y viernes entre 7:00 am y 10:00 am por tu zona. Saca las bolsas blancas la noche anterior. En días festivos el servicio se reprograma al siguiente día hábil.',
+    },
+    {
+      keywords: ['materiales', 'reciben', 'eca', 'qué reciben', 'aceptan'],
+      reply: 'En la ECA recibimos: cartón, papel, plástico PET y duro, vidrio, metal y chatarra. No recibimos plástico de película, icopor ni residuos contaminados con comida. ¡Todo debe estar limpio y seco!',
+    },
+    {
+      keywords: ['domicilio', 'solicitar', 'servicio', 'recolección a domicilio'],
+      reply: 'El servicio de recolección a domicilio es gratuito para cantidades mayores a 20 kg. Llama al 311-234-5678 o escríbenos al WhatsApp. Atendemos lunes a sábado de 8:00 am a 5:00 pm.',
+    },
+  ],
+};
+
+const DEMO_DEFAULT: Record<string, string> = {
+  admin:      'Como administrador puedes gestionar pesajes, usuarios y precios desde el menú principal. ¿Necesitas ayuda con alguna función específica?',
+  recycler:   'Puedes ver tus pesajes, precios actuales y rutas desde el menú principal. ¿En qué te puedo ayudar hoy?',
+  supervisor: 'Como supervisora tienes acceso a todos los reportes consolidados. ¿Quieres el resumen del mes, comparativo de materiales o indicadores de recicladores?',
+  citizen:    '¡Hola! Puedo ayudarte con separación de residuos, horarios de recolección y puntos de entrega en Zipaquirá. ¿Qué necesitas saber?',
+};
+
+function getDemoResponse(text: string, role: string): string {
+  const t = text.toLowerCase();
+  const entries = DEMO_RESPONSES[role] ?? DEMO_RESPONSES.citizen;
+  for (const entry of entries) {
+    if (entry.keywords.some((kw) => t.includes(kw))) return entry.reply;
+  }
+  return DEMO_DEFAULT[role] ?? '¿En qué te puedo ayudar hoy?';
+}
+
+// ── Config backend ───────────────────────────────────────────────────────────
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? '';
+
 // ── Tipos ────────────────────────────────────────────────────────────────────
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   text: string;
   timestamp: Date;
-}
-
-// ── Llamada a Gemini ─────────────────────────────────────────────────────────
-async function callGemini(history: Message[], userText: string): Promise<string> {
-  const contents = [
-    ...history.map((m) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.text }],
-    })),
-    { role: 'user', parts: [{ text: userText }] },
-  ];
-
-  const res = await fetch(GEMINI_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 256,
-      },
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message ?? `HTTP ${res.status}`);
-  }
-
-  const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? 'No obtuve respuesta.';
 }
 
 // ── Burbuja de mensaje ───────────────────────────────────────────────────────
@@ -181,24 +219,36 @@ export function ChatBot() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput]     = useState('');
   const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const messagesRef = useRef<Message[]>([]);
+  const loadingRef = useRef(false);
 
   // Resetear memoria del chat cuando cambia la sesión (otro usuario)
   useEffect(() => {
     setMessages([]);
+    messagesRef.current = [];
+    loadingRef.current = false;
     setInput('');
     setIsOpen(false);
+    setConversationId(null);
   }, [user?.id]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Mensaje de bienvenida al abrir por primera vez
   const openChat = () => {
     if (messages.length === 0) {
-      setMessages([{
+      const welcome: Message = {
         id: 'welcome',
         role: 'assistant',
         text: `¡Hola${user?.name ? `, ${user.name.split(' ')[0]}` : ''}! Soy tu asistente de la ECA. ¿En qué te puedo ayudar hoy?`,
         timestamp: new Date(),
-      }]);
+      };
+      setMessages([welcome]);
+      messagesRef.current = [welcome];
     }
     setIsOpen(true);
   };
@@ -207,10 +257,9 @@ export function ChatBot() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text || loading) return;
-
+  const sendMessage = useCallback(async (rawText: string) => {
+    const text = rawText.trim();
+    if (!text || loadingRef.current) return;
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -218,34 +267,66 @@ export function ChatBot() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const historyWithUser = [...messagesRef.current, userMsg];
+    setMessages(historyWithUser);
+    messagesRef.current = historyWithUser;
     setInput('');
+    loadingRef.current = true;
     setLoading(true);
     scrollToBottom();
 
     try {
-      const reply = await callGemini(
-        messages.filter((m) => m.id !== 'welcome'),
-        text,
-      );
-      setMessages((prev) => [
-        ...prev,
-        { id: Date.now().toString(), role: 'assistant', text: reply, timestamp: new Date() },
-      ]);
-    } catch (e: any) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          text: 'Ups, no pude conectarme. Verifica tu conexión e intenta de nuevo.',
-          timestamp: new Date(),
-        },
-      ]);
+      let reply: string;
+
+      if (API_BASE_URL) {
+        const res = await fetch(`${API_BASE_URL}/api/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            userId: user?.id,
+            userRole: user?.role,
+            conversationId: conversationId ?? undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+        setConversationId(data.conversationId);
+        reply = data.reply;
+      } else {
+        // Modo demo — sin backend configurado
+        await new Promise((r) => setTimeout(r, 700));
+        reply = getDemoResponse(text, user?.role ?? 'citizen');
+      }
+
+      const assistantMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        text: reply,
+        timestamp: new Date(),
+      };
+      const nextHistory = [...historyWithUser, assistantMsg];
+      setMessages(nextHistory);
+      messagesRef.current = nextHistory;
+    } catch (err) {
+      const errorMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        text: 'Lo siento, no pude procesar tu mensaje. Intenta de nuevo.',
+        timestamp: new Date(),
+      };
+      const nextHistory = [...historyWithUser, errorMsg];
+      setMessages(nextHistory);
+      messagesRef.current = nextHistory;
     } finally {
+      loadingRef.current = false;
       setLoading(false);
       scrollToBottom();
     }
+  }, [user?.role]);
+
+  async function handleSend() {
+    await sendMessage(input);
   }
 
   if (!isAuthenticated) return null;
@@ -254,7 +335,7 @@ export function ChatBot() {
     <>
       {/* ── FAB flotante ───────────────────────────────────── */}
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, Platform.OS === 'web' && styles.fabWeb]}
         onPress={openChat}
         activeOpacity={0.85}
       >
@@ -268,8 +349,11 @@ export function ChatBot() {
         transparent
         onRequestClose={() => setIsOpen(false)}
       >
-        <View style={styles.modalOverlay}>
-          <SafeAreaView style={styles.modalContainer} edges={['top', 'bottom']}>
+        <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
+          <SafeAreaView
+            style={[styles.modalContainer, Platform.OS === 'web' && styles.modalContainerWeb]}
+            edges={['top', 'bottom']}
+          >
             {/* ── Header ───────────────────────────────────── */}
             <View style={styles.chatHeader}>
               <View style={styles.chatHeaderLeft}>
@@ -278,7 +362,7 @@ export function ChatBot() {
                 </View>
                 <View>
                   <Text style={styles.chatHeaderTitle}>Asistente ECA</Text>
-                  <Text style={styles.chatHeaderSub}>Powered by Gemini</Text>
+                  <Text style={styles.chatHeaderSub}>Asistente ZipaRecicla</Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -302,54 +386,15 @@ export function ChatBot() {
                 <MessageBubble key={m.id} message={m} />
               ))}
 
-              {/* Preguntas sugeridas — solo visibles si no hay conversación aún */}
-              {messages.length <= 1 && !loading && user?.role && (SUGGESTED_QUESTIONS[user.role] ?? []).length > 0 && (
+              {/* Preguntas sugeridas — siempre visibles */}
+              {!loading && user?.role && (SUGGESTED_QUESTIONS[user.role] ?? []).length > 0 && (
                 <View style={styles.suggestionsContainer}>
                   <Text style={styles.suggestionsLabel}>Preguntas frecuentes</Text>
                   {(SUGGESTED_QUESTIONS[user.role] ?? []).map((q) => (
                     <TouchableOpacity
                       key={q}
                       style={styles.suggestionChip}
-                      onPress={() => {
-                        setInput(q);
-                        // Enviar directamente sin esperar al usuario
-                        const text = q;
-                        const userMsg: Message = {
-                          id: Date.now().toString(),
-                          role: 'user',
-                          text,
-                          timestamp: new Date(),
-                        };
-                        setMessages((prev) => [...prev, userMsg]);
-                        setInput('');
-                        setLoading(true);
-                        scrollToBottom();
-                        callGemini(
-                          messages.filter((m) => m.id !== 'welcome'),
-                          text,
-                        )
-                          .then((reply) => {
-                            setMessages((prev) => [
-                              ...prev,
-                              { id: Date.now().toString(), role: 'assistant', text: reply, timestamp: new Date() },
-                            ]);
-                          })
-                          .catch(() => {
-                            setMessages((prev) => [
-                              ...prev,
-                              {
-                                id: Date.now().toString(),
-                                role: 'assistant',
-                                text: 'Ups, no pude conectarme. Verifica tu conexión e intenta de nuevo.',
-                                timestamp: new Date(),
-                              },
-                            ]);
-                          })
-                          .finally(() => {
-                            setLoading(false);
-                            scrollToBottom();
-                          });
-                      }}
+                      onPress={() => sendMessage(q)}
                       activeOpacity={0.7}
                     >
                       <Text style={styles.suggestionText}>{q}</Text>
@@ -415,12 +460,22 @@ const styles = StyleSheet.create({
     zIndex: 999,
     ...theme.shadows.lg,
   },
+  fabWeb: {
+    bottom: 28,
+    right: 28,
+    cursor: 'pointer' as any,
+  },
 
   // ── Modal overlay ────────────────────────────────────────
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
+  },
+  modalOverlayWeb: {
+    backgroundColor: 'rgba(15, 23, 42, 0.16)',
+    alignItems: 'flex-end',
+    padding: theme.spacing.xxl,
   },
   modalContainer: {
     backgroundColor: theme.colors.background,
@@ -429,6 +484,17 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
     minHeight: '60%',
     overflow: 'hidden',
+  },
+  modalContainerWeb: {
+    width: 420,
+    maxWidth: '100%',
+    height: 640,
+    minHeight: 0,
+    maxHeight: '88%',
+    borderRadius: theme.radius.xxl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    ...theme.shadows.lg,
   },
 
   // ── Header ───────────────────────────────────────────────

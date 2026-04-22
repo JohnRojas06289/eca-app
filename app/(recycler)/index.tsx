@@ -9,6 +9,7 @@ import { MaterialItem } from '@/src/components/MaterialItem';
 import { CustomButton } from '@/src/components/CustomButton';
 import { useAuth } from '@/src/hooks/useAuth';
 import type { MaterialType } from '@/src/components/MaterialItem';
+import { formatLongDate, formatShortDateTime } from '@/src/utils/date';
 
 interface RecentActivity {
   id: string;
@@ -17,12 +18,38 @@ interface RecentActivity {
   kg: number;
   timestamp: string;
   location: string;
+  status: 'confirmed' | 'pending';
 }
 
+const now = new Date();
 const RECENT_ACTIVITY: RecentActivity[] = [
-  { id: '1', material: 'Plástico PET',       materialType: 'plastic',   kg: 12.5, timestamp: 'Hoy, 10:30 AM',    location: 'Zipaquirá' },
-  { id: '2', material: 'Cartón Corrugado',   materialType: 'cardboard', kg: 45.0, timestamp: 'Ayer, 4:15 PM',    location: 'Zipaquirá' },
-  { id: '3', material: 'Vidrio Transparente',materialType: 'glass',     kg: 8.2,  timestamp: 'Ayer, 11:20 AM',   location: 'Zipaquirá' },
+  {
+    id: '1',
+    material: 'Plástico PET',
+    materialType: 'plastic',
+    kg: 12.5,
+    timestamp: formatShortDateTime(new Date(now.getTime() - 50 * 60 * 1000)),
+    location: 'Centro Histórico',
+    status: 'confirmed',
+  },
+  {
+    id: '2',
+    material: 'Cartón corrugado',
+    materialType: 'cardboard',
+    kg: 45,
+    timestamp: formatShortDateTime(new Date(now.getTime() - 2 * 60 * 60 * 1000)),
+    location: 'San Pablo',
+    status: 'confirmed',
+  },
+  {
+    id: '3',
+    material: 'Vidrio transparente',
+    materialType: 'glass',
+    kg: 8.2,
+    timestamp: formatShortDateTime(new Date(now.getTime() - 18 * 60 * 60 * 1000)),
+    location: 'La Granja',
+    status: 'pending',
+  },
 ];
 
 export default function RecyclerHomeScreen() {
@@ -34,25 +61,20 @@ export default function RecyclerHomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Header ────────────────────────────────────── */}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             {user?.avatarUrl ? (
               <Image source={{ uri: user.avatarUrl }} style={styles.headerAvatar} />
             ) : (
               <View style={styles.headerAvatarFallback}>
-                <Text style={styles.headerAvatarInitial}>
-                  {firstName[0]?.toUpperCase()}
-                </Text>
+                <Text style={styles.headerAvatarInitial}>{firstName[0]?.toUpperCase()}</Text>
               </View>
             )}
             <View>
-              <Text style={styles.headerWelcome}>BIENVENIDO</Text>
+              <Text style={styles.headerKicker}>Jornada activa</Text>
               <Text style={styles.headerName}>Hola, {firstName}</Text>
+              <Text style={styles.headerSubtitle}>{formatLongDate()}</Text>
             </View>
           </View>
           <TouchableOpacity
@@ -60,35 +82,62 @@ export default function RecyclerHomeScreen() {
             onPress={() => router.push('/(recycler)/alerts')}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color={theme.colors.textPrimary}
-            />
+            <Ionicons name="notifications-outline" size={22} color={theme.colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
-        {/* ── Tarjeta hero de impacto ───────────────────── */}
         <StatCard
           variant="hero"
-          label="IMPACTO TOTAL"
-          value="1.250"
+          label="MATERIAL DEL DÍA"
+          value="65.7"
           unit="kg"
-          trend="Material recolectado"
+          trend="2 pesajes por confirmar"
           trendDirection="neutral"
           style={styles.heroCard}
         />
-        {/* Sub-badge dentro del hero */}
-        <View style={styles.heroSubBadge}>
-          <Ionicons name="leaf-outline" size={14} color={theme.colors.textOnPrimary} />
-          <Text style={styles.heroSubBadgeText}>Asociación Zipaquirá</Text>
+
+        <View style={styles.routeCard}>
+          <View style={styles.routeHeader}>
+            <Text style={styles.routeTitle}>Ruta en curso</Text>
+            <View style={styles.routeChip}>
+              <Text style={styles.routeChipText}>En ejecución</Text>
+            </View>
+          </View>
+
+          <View style={styles.routeRow}>
+            <Ionicons name="map-outline" size={16} color={theme.colors.textSecondary} />
+            <Text style={styles.routeText}>Centro Histórico · Parada 6 de 14</Text>
+          </View>
+          <View style={styles.routeRow}>
+            <Ionicons name="location-outline" size={16} color={theme.colors.textSecondary} />
+            <Text style={styles.routeText}>Siguiente punto: Calle 5 con Carrera 10</Text>
+          </View>
+          <View style={styles.routeRow}>
+            <Ionicons name="time-outline" size={16} color={theme.colors.textSecondary} />
+            <Text style={styles.routeText}>ETA: 12 minutos</Text>
+          </View>
+
+          <View style={styles.routeActions}>
+            <CustomButton
+              label="Ver ruta"
+              variant="secondary"
+              size="md"
+              onPress={() => router.push('/(recycler)/routes')}
+              style={styles.flexBtn}
+            />
+            <CustomButton
+              label="Reportar incidencia"
+              size="md"
+              onPress={() => router.push('/(recycler)/report-incident')}
+              style={styles.flexBtn}
+            />
+          </View>
         </View>
 
-        {/* ── Stats compactos ───────────────────────────── */}
         <View style={styles.statsRow}>
           <StatCard
             variant="compact"
-            label="Ingresos Est."
+            label="Ingresos est."
             value="$450.000"
             icon="cash-outline"
             iconColor={theme.colors.primary}
@@ -96,47 +145,33 @@ export default function RecyclerHomeScreen() {
           />
           <StatCard
             variant="compact"
-            label="Ruta Actual"
-            value="Centro Hist..."
-            icon="map-outline"
-            iconColor={theme.colors.info}
-            iconBgColor={theme.colors.infoLight}
+            label="Confirmados"
+            value="5"
+            icon="checkmark-circle-outline"
+            iconColor={theme.colors.success}
+            iconBgColor={theme.colors.successLight}
             style={styles.statCardHalf}
           />
         </View>
 
-        {/* ── Acciones rápidas ──────────────────────────── */}
         <View style={styles.quickActions}>
           <CustomButton
-            label="REVISAR PESAJES"
-            leftIcon={
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={20}
-                color={theme.colors.textOnPrimary}
-              />
-            }
-            onPress={() => router.push('/(recycler)/validate')}
-            style={styles.actionBtn}
+            label="Registrar pesaje"
+            leftIcon={<Ionicons name="add-circle-outline" size={18} color={theme.colors.textOnPrimary} />}
+            onPress={() => router.push('/(recycler)/new-weighing')}
+            size="md"
           />
           <CustomButton
-            label="VER PRECIOS"
-            leftIcon={
-              <Ionicons
-                name="pricetag-outline"
-                size={18}
-                color={theme.colors.primary}
-              />
-            }
+            label="Validar pesajes"
             variant="secondary"
-            onPress={() => router.push('/(recycler)/prices')}
-            style={styles.actionBtn}
+            leftIcon={<Ionicons name="checkmark-done-outline" size={18} color={theme.colors.primary} />}
+            onPress={() => router.push('/(recycler)/validate')}
+            size="md"
           />
         </View>
 
-        {/* ── Actividad reciente ────────────────────────── */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Actividad Reciente</Text>
+          <Text style={styles.sectionTitle}>Actividad reciente</Text>
           <TouchableOpacity onPress={() => router.push('/(recycler)/weighings')}>
             <Text style={styles.sectionLink}>Ver todo</Text>
           </TouchableOpacity>
@@ -151,22 +186,13 @@ export default function RecyclerHomeScreen() {
             value={`${item.kg} kg`}
             valueColor={theme.colors.primary}
             materialType={item.materialType}
+            badge={item.status === 'confirmed' ? 'CONFIRMADO' : 'PENDIENTE'}
+            badgeColor={item.status === 'confirmed' ? theme.colors.success : theme.colors.warning}
+            onPress={() => router.push('/(recycler)/weighings')}
+            showChevron
           />
         ))}
-
-        {/* ── Mini mapa de ruta ─────────────────────────── */}
-        <View style={styles.miniMap}>
-          {/* Reemplazar con MapView thumbnail de react-native-maps */}
-          <View style={styles.miniMapPlaceholder}>
-            <Ionicons name="map" size={32} color={theme.colors.primaryMid} />
-          </View>
-          <View style={styles.miniMapBadge}>
-            <View style={styles.miniMapDot} />
-            <Text style={styles.miniMapText}>En ruta: Calle 5 con Carrera 10</Text>
-          </View>
-        </View>
       </ScrollView>
-
     </SafeAreaView>
   );
 }
@@ -179,18 +205,19 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.huge,
   },
 
-  // ── Header ──────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl,
+    paddingBottom: theme.spacing.lg,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: theme.spacing.md,
+    flex: 1,
+    marginRight: theme.spacing.md,
   },
   headerAvatar: {
     width: theme.sizes.avatarMd,
@@ -210,16 +237,21 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.primary,
   },
-  headerWelcome: {
+  headerKicker: {
     fontSize: theme.typography.sizes.tiny,
-    fontWeight: theme.typography.weights.semibold,
     color: theme.colors.textMuted,
-    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   headerName: {
     fontSize: theme.typography.sizes.h3,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textPrimary,
+    marginTop: 2,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
   },
   notifBtn: {
     width: 40,
@@ -228,55 +260,82 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...theme.shadows.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
 
-  // ── Hero card ────────────────────────────────────────────
-  heroCard: { marginBottom: 0 },
-  heroSubBadge: {
+  heroCard: {
+    marginBottom: theme.spacing.lg,
+  },
+
+  routeCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.lg,
+  },
+  routeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: theme.spacing.xs,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+  },
+  routeTitle: {
+    fontSize: theme.typography.sizes.h4,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textPrimary,
+  },
+  routeChip: {
+    backgroundColor: theme.colors.infoLight,
     borderRadius: theme.radius.pill,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    marginBottom: theme.spacing.lg,
-    // Posicionar sobre la tarjeta verde (margin negativo)
-    marginTop: -theme.spacing.xl,
-    marginLeft: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
   },
-  heroSubBadgeText: {
+  routeChipText: {
     fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.info,
     fontWeight: theme.typography.weights.semibold,
-    color: theme.colors.textOnPrimary,
   },
+  routeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  routeText: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textSecondary,
+    flex: 1,
+  },
+  routeActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+  },
+  flexBtn: { flex: 1 },
 
-  // ── Stats ────────────────────────────────────────────────
   statsRow: {
     flexDirection: 'row',
     gap: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
   },
   statCardHalf: { flex: 1 },
 
-  // ── Acciones rápidas ─────────────────────────────────────
   quickActions: {
     gap: theme.spacing.sm,
-    marginBottom: theme.spacing.xxl,
+    marginBottom: theme.spacing.xl,
   },
-  actionBtn: {},
 
-  // ── Actividad reciente ───────────────────────────────────
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: theme.typography.sizes.h3,
+    fontSize: theme.typography.sizes.h4,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textPrimary,
   },
@@ -285,38 +344,4 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     fontWeight: theme.typography.weights.medium,
   },
-
-  // ── Mini mapa ────────────────────────────────────────────
-  miniMap: {
-    borderRadius: theme.radius.lg,
-    overflow: 'hidden',
-    marginTop: theme.spacing.md,
-    ...theme.shadows.sm,
-  },
-  miniMapPlaceholder: {
-    height: 120,
-    backgroundColor: '#D4EAD0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniMapBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    backgroundColor: theme.colors.surface,
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-  },
-  miniMapDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.error,
-  },
-  miniMapText: {
-    fontSize: theme.typography.sizes.small,
-    fontWeight: theme.typography.weights.medium,
-    color: theme.colors.textPrimary,
-  },
-
 });

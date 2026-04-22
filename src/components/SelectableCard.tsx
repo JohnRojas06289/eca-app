@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   gridCard: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     padding: theme.spacing.lg,
     alignItems: 'center',
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: theme.colors.border,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.sm,

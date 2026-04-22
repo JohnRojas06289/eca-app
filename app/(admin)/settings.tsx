@@ -148,7 +148,7 @@ export default function AdminSettingsScreen() {
             icon="pricetag-outline"
             label="Actualizar tabla de precios"
             subtitle="Modifica los precios por kg de cada material"
-            onPress={() => {}}
+            onPress={() => router.push('/(admin)/prices' as any)}
           />
           <View style={styles.cardDivider} />
           <SettingItem
@@ -162,6 +162,13 @@ export default function AdminSettingsScreen() {
         {/* ── Rutas y operaciones ───────────────────────────── */}
         <Text style={styles.sectionTitle}>Rutas y Operaciones</Text>
         <View style={styles.card}>
+          <SettingItem
+            icon="scale-outline"
+            label="Registrar pesaje"
+            subtitle="Crear un nuevo pesaje para validación"
+            onPress={() => router.push('/(admin)/new-weighing' as any)}
+          />
+          <View style={styles.cardDivider} />
           <SettingItem
             icon="map-outline"
             label="Configurar rutas"

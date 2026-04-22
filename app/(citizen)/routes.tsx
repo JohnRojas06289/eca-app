@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
+import { formatLongDate } from '@/src/utils/date';
 
 /**
  * Pantalla de Rutas de Recolección para el Ciudadano.
@@ -15,6 +16,10 @@ import { CustomButton } from '@/src/components/CustomButton';
  * y configurar GOOGLE_MAPS_API_KEY en app.json > android.config / ios.config
  */
 export default function CitizenRoutesScreen() {
+  const nextRouteDate = new Date();
+  nextRouteDate.setHours(nextRouteDate.getHours() + 2);
+  const nextRouteTimeLabel = `Hoy · ${nextRouteDate.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })}`;
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar style="dark" />
@@ -86,8 +91,9 @@ export default function CitizenRoutesScreen() {
                 size={14}
                 color={theme.colors.primary}
               />
-              <Text style={styles.routeTime}>Hoy, 2:00 PM</Text>
+              <Text style={styles.routeTime}>{nextRouteTimeLabel}</Text>
             </View>
+            <Text style={styles.routeDate}>{formatLongDate()}</Text>
           </View>
           <View style={styles.statusBadge}>
             <Text style={styles.statusBadgeText}>EN CAMINO</Text>
@@ -259,6 +265,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.body,
     color: theme.colors.primary,
     fontWeight: theme.typography.weights.medium,
+  },
+  routeDate: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    marginTop: 2,
   },
   statusBadge: {
     backgroundColor: theme.colors.primaryLight,

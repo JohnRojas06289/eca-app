@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { formatRelativeTime } from '@/src/utils/date';
 
-type AlertCategory = 'all' | 'route' | 'weighing' | 'system';
+type AlertCategory = 'all' | 'weighing' | 'route' | 'user';
 type AlertSeverity = 'info' | 'warning' | 'error' | 'success';
 
 interface AlertItem {
@@ -29,65 +29,38 @@ const now = new Date();
 const ALERTS: AlertItem[] = [
   {
     id: '1',
-    title: 'Nueva parada asignada',
-    body: 'Se agregó "Conjunto Algarra III" a tu ruta de hoy. Parada #21, Calle 8 #4-12.',
-    date: new Date(now.getTime() - 5 * 60 * 1000),
-    category: 'route',
-    severity: 'info',
-    read: false,
-  },
-  {
-    id: '2',
-    title: 'Pesaje confirmado',
-    body: 'El pesaje de Plástico PET (12.5 kg) fue confirmado por el sistema. Valor: $10,000.',
-    date: new Date(now.getTime() - 32 * 60 * 1000),
+    title: 'Pesaje pendiente de aprobación',
+    body: '3 pesajes registrados esperan confirmación del reciclador.',
+    date: new Date(now.getTime() - 10 * 60 * 1000),
     category: 'weighing',
-    severity: 'success',
-    read: false,
-  },
-  {
-    id: '3',
-    title: 'Acceso bloqueado en ruta',
-    body: 'La parada #15 "Conjunto El Salitre" reporta acceso bloqueado por obras. Replanifica tu recorrido.',
-    date: new Date(now.getTime() - 60 * 60 * 1000),
-    category: 'route',
     severity: 'warning',
     read: false,
   },
   {
-    id: '4',
-    title: 'Precio del aluminio actualizado',
-    body: 'El precio del aluminio pasó de $2,000/kg a $2,200/kg. Tus pesajes futuros se registrarán al nuevo precio.',
-    date: new Date(now.getTime() - 21 * 60 * 60 * 1000),
-    category: 'system',
-    severity: 'info',
-    read: true,
-  },
-  {
-    id: '5',
-    title: 'Ruta completada',
-    body: '¡Ruta "Centro Histórico" finalizada con éxito! Recolectaste 91.1 kg en 13 paradas.',
-    date: new Date(now.getTime() - 23 * 60 * 60 * 1000),
+    id: '2',
+    title: 'Ruta bloqueada',
+    body: 'La parada #15 de la ruta "Centro Histórico" reporta acceso bloqueado.',
+    date: new Date(now.getTime() - 40 * 60 * 1000),
     category: 'route',
-    severity: 'success',
-    read: true,
+    severity: 'error',
+    read: false,
   },
   {
-    id: '6',
-    title: 'Error al sincronizar pesaje',
-    body: 'El pesaje de Vidrio Transparente no se pudo sincronizar por falta de conexión. Se reintentará automáticamente.',
-    date: new Date(now.getTime() - 48 * 60 * 60 * 1000),
-    category: 'weighing',
-    severity: 'error',
-    read: true,
+    id: '3',
+    title: 'Nuevo reciclador',
+    body: 'María González completó el registro y espera aprobación.',
+    date: new Date(now.getTime() - 60 * 60 * 1000),
+    category: 'user',
+    severity: 'info',
+    read: false,
   },
 ];
 
 const CATEGORIES: { key: AlertCategory; label: string }[] = [
   { key: 'all',      label: 'Todas'    },
-  { key: 'route',    label: 'Rutas'    },
   { key: 'weighing', label: 'Pesajes'  },
-  { key: 'system',   label: 'Sistema'  },
+  { key: 'route',    label: 'Rutas'    },
+  { key: 'user',     label: 'Usuarios' },
 ];
 
 const SEVERITY_CONFIG: Record<AlertSeverity, { icon: string; color: string; bgColor: string }> = {
@@ -97,7 +70,7 @@ const SEVERITY_CONFIG: Record<AlertSeverity, { icon: string; color: string; bgCo
   success: { icon: 'checkmark-circle-outline',   color: theme.colors.success, bgColor: theme.colors.successLight },
 };
 
-export default function RecyclerAlertsScreen() {
+export default function AdminAlertsScreen() {
   const [activeCategory, setActiveCategory] = useState<AlertCategory>('all');
   const [alerts, setAlerts] = useState<AlertItem[]>(ALERTS);
 

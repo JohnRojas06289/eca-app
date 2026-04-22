@@ -7,6 +7,7 @@ import {
   TextStyle,
   ActivityIndicator,
   View,
+  Platform,
 } from 'react-native';
 import { theme } from '@/src/theme/theme';
 
@@ -67,6 +68,7 @@ export function CustomButton({
       activeOpacity={0.8}
       style={[
         styles.base,
+        Platform.OS === 'web' && styles.webBase,
         sizeStyles[size],
         variantStyles[variant],
         isDisabled && styles.disabled,
@@ -110,18 +112,18 @@ export function CustomButton({
 const sizeStyles = StyleSheet.create({
   sm: {
     height: theme.sizes.buttonHeightSm,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
   },
   md: {
     height: theme.sizes.buttonHeightMd,
-    paddingHorizontal: theme.spacing.xl,
-    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.radius.md,
   },
   lg: {
     height: theme.sizes.buttonHeight,
-    paddingHorizontal: theme.spacing.xxl,
-    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.xl,
+    borderRadius: theme.radius.lg,
   },
 });
 
@@ -130,11 +132,12 @@ const sizeStyles = StyleSheet.create({
 const variantStyles = StyleSheet.create({
   primary: {
     backgroundColor: theme.colors.primary,
+    ...theme.shadows.sm, // Sombra más sutil y funcional
   },
   secondary: {
-    backgroundColor: theme.colors.transparent,
+    backgroundColor: theme.colors.surface,
     borderWidth: 1.5,
-    borderColor: theme.colors.primary,
+    borderColor: theme.colors.border,
   },
   ghost: {
     backgroundColor: theme.colors.transparent,
@@ -172,6 +175,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  webBase: {
+    cursor: 'pointer' as any,
+    transitionDuration: '160ms' as any,
   },
   fullWidth: {
     width: '100%',

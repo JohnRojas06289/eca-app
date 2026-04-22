@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TextInputProps,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
@@ -72,6 +73,7 @@ export function CustomInput({
       <View
         style={[
           styles.inputContainer,
+          Platform.OS === 'web' && styles.inputContainerWeb,
           isFocused && styles.inputFocused,
           hasError && styles.inputError,
         ]}
@@ -159,8 +161,13 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     paddingHorizontal: theme.spacing.lg,
   },
+  inputContainerWeb: {
+    minHeight: 48,
+  },
   inputFocused: {
+    backgroundColor: theme.colors.surface,
     borderColor: theme.colors.borderFocus,
+    ...theme.shadows.sm,
   },
   inputError: {
     borderColor: theme.colors.error,
@@ -173,6 +180,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.body,
     color: theme.colors.textPrimary,
     paddingVertical: 0,
+    outlineStyle: 'none' as any,
   },
   rightIconBtn: {
     marginLeft: theme.spacing.sm,

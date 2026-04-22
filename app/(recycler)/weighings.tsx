@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { MaterialItem } from '@/src/components/MaterialItem';
 import type { MaterialType } from '@/src/components/MaterialItem';
+import { formatShortDateTime } from '@/src/utils/date';
 
 type FilterPeriod = 'day' | 'week' | 'month';
 
@@ -16,43 +17,52 @@ interface WeighingRecord {
   materialType: MaterialType;
   kg: number;
   valuePerKg: number;
-  timestamp: string;
+  date: Date;
   location: string;
   status: 'confirmed' | 'pending';
 }
 
+const now = new Date();
 const WEIGHINGS: WeighingRecord[] = [
-  { id: '1', material: 'Plástico PET',        materialType: 'plastic',   kg: 12.5, valuePerKg: 800,  timestamp: 'Hoy, 10:30 AM',  location: 'Zipaquirá Centro',  status: 'confirmed' },
-  { id: '2', material: 'Cartón Corrugado',    materialType: 'cardboard', kg: 45.0, valuePerKg: 350,  timestamp: 'Hoy, 09:15 AM',  location: 'San Pablo',         status: 'confirmed' },
-  { id: '3', material: 'Vidrio Transparente', materialType: 'glass',     kg: 8.2,  valuePerKg: 120,  timestamp: 'Ayer, 4:15 PM',  location: 'El Jardín',         status: 'pending'   },
-  { id: '4', material: 'Papel Archivo',       materialType: 'paper',     kg: 22.0, valuePerKg: 500,  timestamp: 'Ayer, 11:20 AM', location: 'Zipaquirá Centro',  status: 'confirmed' },
-  { id: '5', material: 'Aluminio',            materialType: 'metals',    kg: 3.4,  valuePerKg: 2200, timestamp: 'Hace 2 días',    location: 'La Granja',         status: 'confirmed' },
+  { id: '1', material: 'Plástico PET', materialType: 'plastic', kg: 12.5, valuePerKg: 800, date: new Date(now.getTime() - 90 * 60 * 1000), location: 'Centro Histórico', status: 'confirmed' },
+  { id: '2', material: 'Cartón Corrugado', materialType: 'cardboard', kg: 45.0, valuePerKg: 350, date: new Date(now.getTime() - 3 * 60 * 60 * 1000), location: 'San Pablo', status: 'confirmed' },
+  { id: '3', material: 'Vidrio Transparente', materialType: 'glass', kg: 8.2, valuePerKg: 120, date: new Date(now.getTime() - 26 * 60 * 60 * 1000), location: 'El Jardín', status: 'pending' },
+  { id: '4', material: 'Papel Archivo', materialType: 'paper', kg: 22.0, valuePerKg: 500, date: new Date(now.getTime() - 31 * 60 * 60 * 1000), location: 'Centro Histórico', status: 'confirmed' },
+  { id: '5', material: 'Aluminio', materialType: 'metals', kg: 3.4, valuePerKg: 2200, date: new Date(now.getTime() - 50 * 60 * 60 * 1000), location: 'La Granja', status: 'confirmed' },
 ];
 
 const FILTERS: { key: FilterPeriod; label: string }[] = [
-  { key: 'day',   label: 'Hoy'    },
-  { key: 'week',  label: 'Semana' },
-  { key: 'month', label: 'Mes'    },
+  { key: 'day', label: 'Hoy' },
+  { key: 'week', label: 'Semana' },
+  { key: 'month', label: 'Mes' },
 ];
 
 const STATUS_CONFIG = {
-  confirmed: { label: 'Confirmado', color: theme.colors.success,  bgColor: theme.colors.successLight },
-  pending:   { label: 'Pendiente',  color: theme.colors.warning,  bgColor: theme.colors.warningLight  },
+  confirmed: { label: 'Confirmado', color: theme.colors.success },
+  pending: { label: 'Pendiente', color: theme.colors.warning },
 };
-
-const TOTAL_KG    = 91.1;
-const TOTAL_VALUE = 64_380;
 
 export default function RecyclerWeighingsScreen() {
   const router = useRouter();
-  const [filter, setFilter]   = useState<FilterPeriod>('week');
-  const [search, setSearch]   = useState('');
+  const [filter, setFilter] = useState<FilterPeriod>('week');
+  const [search, setSearch] = useState('');
 
-  const byPeriod = filter === 'day'
-    ? WEIGHINGS.filter((w) => w.timestamp.startsWith('Hoy'))
-    : filter === 'week'
-    ? WEIGHINGS.slice(0, 4)
-    : WEIGHINGS;
+  const periodStart = useMemo(() => {
+    const base = new Date();
+    if (filter === 'day') {
+      base.setHours(0, 0, 0, 0);
+      return base;
+    }
+    if (filter === 'week') {
+      base.setDate(base.getDate() - 7);
+      return base;
+    }
+    base.setMonth(base.getMonth() - 1);
+    return base;
+  }, [filter]);
+
+  const byPeriod =
+    WEIGHINGS.filter((w) => w.date >= periodStart);
 
   const filtered = byPeriod.filter(
     (w) =>
@@ -61,13 +71,22 @@ export default function RecyclerWeighingsScreen() {
       w.location.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const summary = useMemo(() => {
+    const totalKg = byPeriod.reduce((acc, item) => acc + item.kg, 0);
+    const totalValue = byPeriod.reduce((acc, item) => acc + item.kg * item.valuePerKg, 0);
+    const pending = byPeriod.filter((item) => item.status === 'pending').length;
+    return { totalKg, totalValue, pending };
+  }, [byPeriod]);
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
 
-      {/* ── Header ────────────────────────────────────────── */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mis Pesajes</Text>
+        <View>
+          <Text style={styles.headerKicker}>Operación personal</Text>
+          <Text style={styles.headerTitle}>Mis pesajes</Text>
+        </View>
         <TouchableOpacity
           onPress={() => router.push('/(recycler)/new-weighing')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -76,32 +95,23 @@ export default function RecyclerWeighingsScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Resumen del período ────────────────────────── */}
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Resumen del período</Text>
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>TOTAL RECOLECTADO</Text>
-              <Text style={styles.summaryValue}>{TOTAL_KG} kg</Text>
+              <Text style={styles.summaryLabel}>Recolectado</Text>
+              <Text style={styles.summaryValue}>{summary.totalKg.toFixed(1)} kg</Text>
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryLabel}>VALOR ESTIMADO</Text>
-              <Text style={[styles.summaryValue, styles.summaryValueGreen]}>
-                ${TOTAL_VALUE.toLocaleString('es-CO')}
-              </Text>
+              <Text style={styles.summaryLabel}>Valor estimado</Text>
+              <Text style={[styles.summaryValue, { color: theme.colors.primary }]}>${Math.round(summary.totalValue).toLocaleString('es-CO')}</Text>
             </View>
           </View>
-          <View style={styles.summaryFooter}>
-            <Ionicons name="trending-up-outline" size={14} color={theme.colors.success} />
-            <Text style={styles.summaryTrend}>+18% vs semana anterior</Text>
-          </View>
+          <Text style={styles.summaryHint}>{summary.pending} registros pendientes por confirmar.</Text>
         </View>
 
-        {/* ── Filtros período ───────────────────────────── */}
         <View style={styles.filterRow}>
           {FILTERS.map((f) => {
             const isActive = filter === f.key;
@@ -110,17 +120,14 @@ export default function RecyclerWeighingsScreen() {
                 key={f.key}
                 style={[styles.filterChip, isActive && styles.filterChipActive]}
                 onPress={() => setFilter(f.key)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
-                <Text style={[styles.filterLabel, isActive && styles.filterLabelActive]}>
-                  {f.label}
-                </Text>
+                <Text style={[styles.filterLabel, isActive && styles.filterLabelActive]}>{f.label}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* ── Buscador ──────────────────────────────────── */}
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={18} color={theme.colors.textMuted} />
           <TextInput
@@ -137,15 +144,17 @@ export default function RecyclerWeighingsScreen() {
           )}
         </View>
 
-        {/* ── Lista de pesajes ──────────────────────────── */}
         <View style={styles.sectionHeader}>
-          <Ionicons name="list-outline" size={18} color={theme.colors.textPrimary} />
           <Text style={styles.sectionTitle}>Registros</Text>
           <Text style={styles.sectionCount}>{filtered.length}</Text>
         </View>
 
         {filtered.length === 0 ? (
-          <Text style={styles.empty}>No se encontraron resultados</Text>
+          <View style={styles.emptyState}>
+            <Ionicons name="scale-outline" size={32} color={theme.colors.textMuted} />
+            <Text style={styles.emptyTitle}>No hay pesajes</Text>
+            <Text style={styles.emptySubtitle}>Intenta con otro filtro o crea un nuevo registro.</Text>
+          </View>
         ) : (
           filtered.map((item) => {
             const s = STATUS_CONFIG[item.status];
@@ -153,8 +162,8 @@ export default function RecyclerWeighingsScreen() {
               <MaterialItem
                 key={item.id}
                 name={item.material}
-                subtitle={item.location}
-                timestamp={item.timestamp}
+                subtitle={`${item.location} · $${item.valuePerKg.toLocaleString('es-CO')}/kg`}
+                timestamp={formatShortDateTime(item.date)}
                 value={`${item.kg} kg`}
                 valueColor={theme.colors.primary}
                 materialType={item.materialType}
@@ -182,9 +191,15 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
   },
+  headerKicker: {
+    fontSize: theme.typography.sizes.tiny,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    color: theme.colors.textMuted,
+  },
   headerTitle: {
-    fontSize: theme.typography.sizes.h4,
-    fontWeight: theme.typography.weights.semibold,
+    fontSize: theme.typography.sizes.h3,
+    fontWeight: theme.typography.weights.bold,
     color: theme.colors.textPrimary,
   },
 
@@ -194,82 +209,80 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.huge,
   },
 
-  // ── Resumen ──────────────────────────────────────────────
   summaryCard: {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.xl,
-    padding: theme.spacing.xl,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
-    ...theme.shadows.sm,
+  },
+  summaryTitle: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+    marginBottom: theme.spacing.sm,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
   },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summaryDivider: { width: 1, height: 40, backgroundColor: theme.colors.border },
+  summaryDivider: { width: 1, height: 36, backgroundColor: theme.colors.border },
   summaryLabel: {
     fontSize: theme.typography.sizes.tiny,
-    fontWeight: theme.typography.weights.bold,
     color: theme.colors.textMuted,
-    letterSpacing: 0.4,
-    marginBottom: theme.spacing.xs,
+    marginBottom: 2,
   },
   summaryValue: {
-    fontSize: theme.typography.sizes.h2,
+    fontSize: theme.typography.sizes.h3,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textPrimary,
   },
-  summaryValueGreen: { color: theme.colors.primary },
-  summaryFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.xs,
-  },
-  summaryTrend: {
+  summaryHint: {
     fontSize: theme.typography.sizes.small,
-    color: theme.colors.success,
-    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
   },
 
-  // ── Filtros ──────────────────────────────────────────────
   filterRow: {
     flexDirection: 'row',
     gap: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
   filterChip: {
     paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.sm,
+    height: theme.sizes.chipHeight,
     borderRadius: theme.radius.pill,
     backgroundColor: theme.colors.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   filterChipActive: {
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
   filterLabel: {
-    fontSize: theme.typography.sizes.body,
+    fontSize: theme.typography.sizes.small,
     fontWeight: theme.typography.weights.medium,
     color: theme.colors.textSecondary,
   },
   filterLabelActive: { color: theme.colors.textOnPrimary },
 
-  // ── Búsqueda ─────────────────────────────────────────────
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.pill,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    height: theme.sizes.inputHeight,
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    marginBottom: theme.spacing.xl,
+    marginBottom: theme.spacing.lg,
     gap: theme.spacing.sm,
-    ...theme.shadows.sm,
   },
   searchInput: {
     flex: 1,
@@ -278,28 +291,34 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
 
-  // ── Sección ──────────────────────────────────────────────
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
-    marginBottom: theme.spacing.lg,
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
   },
   sectionTitle: {
-    flex: 1,
-    fontSize: theme.typography.sizes.h3,
+    fontSize: theme.typography.sizes.h4,
     fontWeight: theme.typography.weights.bold,
     color: theme.colors.textPrimary,
   },
   sectionCount: {
     fontSize: theme.typography.sizes.small,
-    fontWeight: theme.typography.weights.bold,
     color: theme.colors.textMuted,
   },
-  empty: {
+
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xxxl,
+    gap: theme.spacing.sm,
+  },
+  emptyTitle: {
     fontSize: theme.typography.sizes.body,
-    color: theme.colors.textMuted,
-    textAlign: 'center',
-    paddingVertical: theme.spacing.xxl,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  emptySubtitle: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
   },
 });

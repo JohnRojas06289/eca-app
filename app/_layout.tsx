@@ -2,8 +2,10 @@ import { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '@/src/hooks/useAuth';
+import { UsersProvider } from '@/src/context/UsersContext';
 import { theme } from '@/src/theme/theme';
 import { ChatBot } from '@/src/components/ChatBot';
+import { isWeb, webLayout } from '@/src/theme/responsive';
 
 /**
  * Layout raíz de la app.
@@ -20,7 +22,9 @@ import { ChatBot } from '@/src/components/ChatBot';
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigator />
+      <UsersProvider>
+        <RootNavigator />
+      </UsersProvider>
     </AuthProvider>
   );
 }
@@ -77,7 +81,7 @@ function RootNavigator() {
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, isWeb && styles.rootWeb]}>
       <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
         {/* Grupo de autenticación (Login, Registro, Recuperar contraseña) */}
         <Stack.Screen name="(auth)" />
@@ -98,6 +102,13 @@ function RootNavigator() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    backgroundColor: theme.colors.background,
+  },
+  rootWeb: {
+    width: '100%',
+    maxWidth: webLayout.appMaxWidth,
+    minHeight: '100vh' as any,
+    alignSelf: 'center',
   },
   loadingContainer: {
     flex: 1,

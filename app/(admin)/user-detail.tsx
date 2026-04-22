@@ -6,6 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,15 +19,15 @@ import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
 import { MaterialItem } from '@/src/components/MaterialItem';
 import type { MaterialType } from '@/src/components/MaterialItem';
-
-type UserStatus = 'active' | 'inactive' | 'pending';
+import { formatRelativeTime } from '@/src/utils/date';
+import { useUsers, type UserRole, type UserStatus } from '@/src/context/UsersContext';
 
 const RECENT_WEIGHINGS: {
-  id: string; material: string; materialType: MaterialType; kg: number; timestamp: string;
+  id: string; material: string; materialType: MaterialType; kg: number; date: Date;
 }[] = [
-  { id: '1', material: 'Plástico PET',       materialType: 'plastic',   kg: 12.5, timestamp: 'Hoy, 10:30 AM'  },
-  { id: '2', material: 'Cartón Corrugado',   materialType: 'cardboard', kg: 45.0, timestamp: 'Ayer, 4:15 PM'  },
-  { id: '3', material: 'Vidrio Transparente',materialType: 'glass',     kg: 8.2,  timestamp: 'Ayer, 11:20 AM' },
+  { id: '1', material: 'Plástico PET',        materialType: 'plastic',   kg: 12.5, date: new Date(Date.now() - 95 * 60 * 1000)       },
+  { id: '2', material: 'Cartón Corrugado',    materialType: 'cardboard', kg: 45.0, date: new Date(Date.now() - 20 * 60 * 60 * 1000)   },
+  { id: '3', material: 'Vidrio Transparente', materialType: 'glass',     kg: 8.2,  date: new Date(Date.now() - 25 * 60 * 60 * 1000)   },
 ];
 
 const STATUS_CONFIG: Record<UserStatus, { label: string; color: string; bgColor: string }> = {
@@ -32,9 +36,18 @@ const STATUS_CONFIG: Record<UserStatus, { label: string; color: string; bgColor:
   pending:  { label: 'Pendiente', color: theme.colors.warning, bgColor: theme.colors.warningLight  },
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  recycler: 'Reutilizador',
+  admin:    'Administrador',
+  citizen:  'Ciudadano',
+};
+const ROLE_EDIT_OPTIONS: UserRole[] = ['recycler', 'citizen', 'admin'];
+
 export default function UserDetailScreen() {
   const router = useRouter();
+  const { getUserById, updateUser, deleteUser } = useUsers();
   const params = useLocalSearchParams<{
+    userId: string;
     userName: string;
     userCedula: string;
     userRole: string;
@@ -44,37 +57,104 @@ export default function UserDetailScreen() {
     userTotalKg: string;
   }>();
 
-  const [status, setStatus]   = useState<UserStatus>((params.userStatus as UserStatus) ?? 'active');
-  const [toggling, setToggling] = useState(false);
+  const userId     = params.userId      ?? '';
+  const user = getUserById(userId);
+  const initName   = user?.name ?? params.userName ?? '—';
+  const initCedula = user?.cedula ?? params.userCedula ?? '—';
+  const initRole   = (user?.role ?? params.userRole ?? 'citizen') as UserRole;
+  const initStatus = (user?.status ?? params.userStatus ?? 'active') as UserStatus;
+  const initAssoc  = user?.association ?? params.userAssociation ?? '';
+  const joinedAt   = user?.joinedAt ?? params.userJoinedAt ?? '—';
+  const totalKg    = user?.totalKg ?? Number(params.userTotalKg ?? 0);
 
-  const name        = params.userName       ?? '—';
-  const cedula      = params.userCedula     ?? '—';
-  const association = params.userAssociation ?? '';
-  const joinedAt    = params.userJoinedAt   ?? '—';
-  const totalKg     = Number(params.userTotalKg ?? 0);
+  const [role, setRole]           = useState<UserRole>(initRole);
+  const [status, setStatus]       = useState<UserStatus>(initStatus);
+  const [name, setName]           = useState(initName);
+  const [cedula, setCedula]       = useState(initCedula);
+  const [association, setAssoc]   = useState(initAssoc);
+  const [toggling, setToggling]   = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [editName, setEditName]   = useState(initName);
+  const [editCedula, setEditCedula] = useState(initCedula);
+  const [editRole, setEditRole]   = useState<UserRole>(initRole);
+  const [editAssoc, setEditAssoc] = useState(initAssoc);
 
   const statusCfg = STATUS_CONFIG[status];
   const initials  = name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
 
   async function toggleStatus() {
+    if (!userId) return;
     setToggling(true);
     try {
-      // ⚠️ Reemplazar con llamada real a la API:
-      // await UserApi.setStatus({ userId: MOCK_USER.id, status: newStatus });
-      await new Promise((r) => setTimeout(r, 600));
-      setStatus((prev) => (prev === 'active' ? 'inactive' : 'active'));
+      await new Promise((r) => setTimeout(r, 400));
+      const next: UserStatus = status === 'active' ? 'inactive' : 'active';
+      setStatus(next);
+      updateUser(userId, { status: next });
     } finally {
       setToggling(false);
     }
   }
 
   function confirmApprove() {
+    if (!userId) return;
     Alert.alert(
       'Aprobar usuario',
-      `¿Aprobar a ${name} como reciclador activo?`,
+      `¿Aprobar a ${name} como reutilizador activo?`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Aprobar', style: 'default', onPress: () => setStatus('active') },
+        {
+          text: 'Aprobar', style: 'default', onPress: () => {
+            setStatus('active');
+            updateUser(userId, { status: 'active' });
+          },
+        },
+      ],
+    );
+  }
+
+  function openEdit() {
+    setEditName(name);
+    setEditCedula(cedula);
+    setEditRole(role);
+    setEditAssoc(association);
+    setEditVisible(true);
+  }
+
+  function saveEdit() {
+    if (!userId) return;
+    if (!editName.trim() || !editCedula.trim()) {
+      Alert.alert('Campos requeridos', 'Nombre y cédula son obligatorios.');
+      return;
+    }
+    setName(editName.trim());
+    setCedula(editCedula.trim());
+    const nextRole = editRole;
+    const nextAssoc = nextRole === 'recycler' ? editAssoc.trim() : '';
+    setRole(nextRole);
+    setAssoc(nextAssoc);
+    updateUser(userId, {
+      name: editName.trim(),
+      cedula: editCedula.trim(),
+      role: nextRole,
+      association: nextAssoc || undefined,
+      totalKg: nextRole === 'recycler' ? totalKg : undefined,
+    });
+    setEditVisible(false);
+  }
+
+  function confirmDelete() {
+    if (!userId) return;
+    Alert.alert(
+      'Eliminar usuario',
+      `¿Eliminar a ${name}? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar', style: 'destructive', onPress: () => {
+            deleteUser(userId);
+            router.back();
+          },
+        },
       ],
     );
   }
@@ -92,7 +172,12 @@ export default function UserDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detalle de Usuario</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity
+          onPress={openEdit}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -149,20 +234,20 @@ export default function UserDetailScreen() {
             <Ionicons name="person-outline" size={16} color={theme.colors.textMuted} />
             <Text style={styles.infoLabel}>Rol</Text>
             <Text style={styles.infoValue}>
-              {params.userRole === 'recycler' ? 'Reciclador' : params.userRole === 'admin' ? 'Administrador' : 'Ciudadano'}
+              {ROLE_LABELS[role] ?? role}
             </Text>
           </View>
         </View>
 
-        {/* ── Pesajes recientes (solo recicladores) ────────── */}
-        {params.userRole === 'recycler' && (
+        {/* ── Pesajes recientes (solo reutilizadores) ────────── */}
+        {role === 'recycler' && (
           <>
             <Text style={styles.sectionTitle}>Pesajes Recientes</Text>
             {totalKg > 0 ? RECENT_WEIGHINGS.map((w) => (
               <MaterialItem
                 key={w.id}
                 name={w.material}
-                timestamp={w.timestamp}
+                timestamp={formatRelativeTime(w.date)}
                 value={`${w.kg} kg`}
                 valueColor={theme.colors.primary}
                 materialType={w.materialType}
@@ -181,13 +266,7 @@ export default function UserDetailScreen() {
           {status === 'pending' ? (
             <CustomButton
               label="Aprobar Usuario"
-              leftIcon={
-                <Ionicons
-                  name="checkmark-circle-outline"
-                  size={18}
-                  color={theme.colors.textOnPrimary}
-                />
-              }
+              leftIcon={<Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.textOnPrimary} />}
               onPress={confirmApprove}
               style={styles.actionBtn}
             />
@@ -207,8 +286,84 @@ export default function UserDetailScreen() {
               style={styles.actionBtn}
             />
           )}
+
+          <TouchableOpacity style={styles.deleteUserBtn} onPress={confirmDelete} activeOpacity={0.85}>
+            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+            <Text style={styles.deleteUserText}>Eliminar usuario</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* ── Modal Editar ─────────────────────────────────────── */}
+      <Modal
+        visible={editVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setEditVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Editar usuario</Text>
+              <TouchableOpacity onPress={() => setEditVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.fieldLabel}>Nombre completo</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={editName}
+              onChangeText={setEditName}
+              placeholderTextColor={theme.colors.textMuted}
+            />
+
+            <Text style={styles.fieldLabel}>Cédula</Text>
+            <TextInput
+              style={styles.fieldInput}
+              value={editCedula}
+              onChangeText={setEditCedula}
+              keyboardType="numeric"
+              placeholderTextColor={theme.colors.textMuted}
+            />
+
+            <Text style={styles.fieldLabel}>Rol</Text>
+            <View style={styles.segmentRow}>
+              {ROLE_EDIT_OPTIONS.map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.segmentBtn, editRole === r && styles.segmentBtnActive]}
+                  onPress={() => setEditRole(r)}
+                >
+                  <Text style={[styles.segmentText, editRole === r && styles.segmentTextActive]}>
+                    {ROLE_LABELS[r]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {editRole === 'recycler' && (
+              <>
+                <Text style={styles.fieldLabel}>Asociación</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={editAssoc}
+                  onChangeText={setEditAssoc}
+                  placeholder="Ej: Asoc. Zipaquirá"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+              </>
+            )}
+
+            <TouchableOpacity style={styles.saveBtn} onPress={saveEdit} activeOpacity={0.85}>
+              <Text style={styles.saveBtnText}>Guardar cambios</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -371,6 +526,102 @@ const styles = StyleSheet.create({
   },
 
   // ── Acciones ─────────────────────────────────────────────
-  actionsSection: { marginTop: theme.spacing.xl },
+  actionsSection: { marginTop: theme.spacing.xl, gap: theme.spacing.md },
   actionBtn: {},
+  deleteUserBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    height: theme.sizes.buttonHeight,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  deleteUserText: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.error,
+  },
+
+  // ── Modal ─────────────────────────────────────────────────
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalSheet: {
+    backgroundColor: theme.colors.background,
+    borderTopLeftRadius: theme.radius.xxl,
+    borderTopRightRadius: theme.radius.xxl,
+    padding: theme.spacing.screen,
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.xl,
+  },
+  modalTitle: {
+    fontSize: theme.typography.sizes.h4,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textPrimary,
+  },
+  fieldLabel: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+    marginTop: theme.spacing.md,
+  },
+  fieldInput: {
+    height: theme.sizes.inputHeight,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.lg,
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    backgroundColor: theme.colors.surface,
+  },
+  segmentRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  segmentBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentBtnActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  segmentText: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textSecondary,
+  },
+  segmentTextActive: {
+    color: theme.colors.textOnPrimary,
+  },
+  saveBtn: {
+    height: theme.sizes.buttonHeight,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.xl,
+  },
+  saveBtnText: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textOnPrimary,
+  },
 });
