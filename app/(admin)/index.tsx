@@ -1,5 +1,15 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  Pressable,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -57,22 +67,41 @@ const QUICK_ACTIONS = [
   { label: 'Usuarios', icon: 'people-outline', route: '/(admin)/users' },
 ];
 
+const DRAWER_ACTIONS = [
+  { label: 'Reportes', icon: 'bar-chart-outline', route: '/(admin)/reports' },
+  { label: 'Rutas', icon: 'map-outline', route: '/(admin)/routes' },
+  { label: 'Usuarios', icon: 'people-outline', route: '/(admin)/users' },
+  { label: 'Registrar pesaje', icon: 'scale-outline', route: '/(admin)/new-weighing' },
+  { label: 'Validar pesajes', icon: 'checkmark-circle-outline', route: '/(admin)/validate' },
+  { label: 'Alertas', icon: 'notifications-outline', route: '/(admin)/alerts' },
+  { label: 'Precios', icon: 'pricetag-outline', route: '/(admin)/prices' },
+  { label: 'Ajustes', icon: 'settings-outline', route: '/(admin)/settings' },
+];
+
 export default function AdminHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { width } = useWindowDimensions();
 
   const firstName = user?.name?.split(' ')[0] ?? 'Admin';
+  const showMobileMenu = Platform.OS !== 'web' || width < 900;
 
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerCopy}>
             <Text style={styles.headerKicker}>Centro de operación</Text>
             <Text style={styles.headerName}>Hola, {firstName}</Text>
-            <Text style={styles.headerSubtitle}>Última actualización: {formatDateTime()}</Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1}>
+              Última actualización: {formatDateTime()}
+            </Text>
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
@@ -83,7 +112,7 @@ export default function AdminHomeScreen() {
               <Ionicons name="notifications-outline" size={22} color={theme.colors.textPrimary} />
               <View style={styles.notifDot} />
             </TouchableOpacity>
-            {Platform.OS !== 'web' && (
+            {showMobileMenu && (
               <TouchableOpacity
                 style={styles.notifBtn}
                 onPress={() => setMenuOpen(true)}
@@ -221,7 +250,7 @@ export default function AdminHomeScreen() {
         })}
       </ScrollView>
 
-      {Platform.OS !== 'web' && (
+      {showMobileMenu && (
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <View style={styles.drawerOverlay}>
           <Pressable style={styles.drawerBackdrop} onPress={() => setMenuOpen(false)} />
@@ -233,26 +262,19 @@ export default function AdminHomeScreen() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { setMenuOpen(false); router.push('/(admin)/reports' as any); }}>
-              <Ionicons name="bar-chart-outline" size={18} color={theme.colors.textSecondary} />
-              <Text style={styles.drawerItemText}>Reportes</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { setMenuOpen(false); router.push('/(admin)/routes' as any); }}>
-              <Ionicons name="map-outline" size={18} color={theme.colors.textSecondary} />
-              <Text style={styles.drawerItemText}>Rutas</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { setMenuOpen(false); router.push('/(admin)/users' as any); }}>
-              <Ionicons name="people-outline" size={18} color={theme.colors.textSecondary} />
-              <Text style={styles.drawerItemText}>Usuarios</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { setMenuOpen(false); router.push('/(admin)/new-weighing' as any); }}>
-              <Ionicons name="scale-outline" size={18} color={theme.colors.textSecondary} />
-              <Text style={styles.drawerItemText}>Registrar pesaje</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.drawerItem} onPress={() => { setMenuOpen(false); router.push('/(admin)/settings' as any); }}>
-              <Ionicons name="settings-outline" size={18} color={theme.colors.textSecondary} />
-              <Text style={styles.drawerItemText}>Ajustes</Text>
-            </TouchableOpacity>
+            {DRAWER_ACTIONS.map((action) => (
+              <TouchableOpacity
+                key={action.route}
+                style={styles.drawerItem}
+                onPress={() => {
+                  setMenuOpen(false);
+                  router.push(action.route as any);
+                }}
+              >
+                <Ionicons name={action.icon as any} size={18} color={theme.colors.textSecondary} />
+                <Text style={styles.drawerItemText}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
       </Modal>
@@ -263,18 +285,29 @@ export default function AdminHomeScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.background },
+  scrollView: {
+    width: '100%',
+    maxWidth: '100%',
+  },
   scroll: {
     flexGrow: 1,
+    width: '100%',
+    maxWidth: '100%',
     paddingHorizontal: theme.spacing.screen,
     paddingBottom: theme.spacing.huge,
   },
 
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
+  },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: theme.spacing.md,
   },
   headerActions: {
     flexDirection: 'row',
@@ -320,10 +353,15 @@ const styles = StyleSheet.create({
   heroCard: { marginBottom: theme.spacing.lg },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
-  statCardHalf: { flex: 1 },
+  statCardHalf: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+  },
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -331,7 +369,9 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.lg,
   },
   quickActionCard: {
-    width: '48%',
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.lg,
     borderWidth: 1,
@@ -447,7 +487,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   drawerPanel: {
-    width: '72%',
+    width: '78%',
+    maxWidth: 320,
     backgroundColor: theme.colors.surface,
     paddingTop: theme.spacing.huge,
     paddingHorizontal: theme.spacing.lg,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,9 +19,27 @@ import { SelectableCard } from '@/src/components/SelectableCard';
 import { exportCSV, exportPDF, generatePDFHtml } from '@/src/utils/export';
 import { HtmlPreview } from '@/src/components/HtmlPreview';
 import { formatDateTime } from '@/src/utils/date';
+import { useOperationalReports } from '@/src/context/OperationalReportsContext';
+import {
+  OPERATIONAL_MATERIAL_CATALOG,
+  OPERATIONAL_MICRO_ROUTES,
+  OPERATIONAL_USER_TYPES,
+  OPERATIONAL_VEHICLE_TYPES,
+  buildOperatorCode,
+  createOperationalReportRecord,
+  getMicroRouteConfig,
+  toOperationalReportRecordInput,
+  type OperationalMaterialFamily,
+  type OperationalReportRecordInput,
+  type OperationalReportSettings,
+  type OperationalReportRecord,
+  type OperationalUserType,
+  type OperationalVehicleType,
+} from '@/src/constants/operationalReport';
 
 type Period = 'week' | 'month' | 'quarter' | 'year' | 'custom';
-type ReportMode = 'sui' | 'internal';
+type ReportMode = 'sui' | 'internal' | 'operational';
+type ExecutiveReportMode = Exclude<ReportMode, 'operational'>;
 
 interface MaterialStat {
   name: string;
@@ -53,6 +72,24 @@ interface ReportDataset {
   topRecyclers: RecyclerStat[];
 }
 
+interface OperationalFormState {
+  macroRoute: string;
+  microRoute: string;
+  linkedUsersCount: string;
+  userType: OperationalUserType;
+  operatorName: string;
+  operatorIdentification: string;
+  vehicleType: OperationalVehicleType;
+  vehiclePlate: string;
+  associatedToEca: boolean;
+  materialFamily: OperationalMaterialFamily;
+  materialCode: string;
+  quantityKg: string;
+  effectiveKg: string;
+  appliesDcto596: boolean;
+  forceAforado: boolean;
+}
+
 const PERIODS: { key: Period; label: string }[] = [
   { key: 'week',    label: 'Semana'    },
   { key: 'month',   label: 'Mes'       },
@@ -61,7 +98,7 @@ const PERIODS: { key: Period; label: string }[] = [
   { key: 'custom',  label: 'Personalizado' },
 ];
 
-const REPORT_DATASETS: Record<ReportMode, ReportDataset> = {
+const REPORT_DATASETS: Record<ExecutiveReportMode, ReportDataset> = {
   internal: {
     totalKg: 12_450,
     totalValue: 8_960_000,
@@ -131,12 +168,69 @@ function isSameDate(a: Date | null, b: Date | null): boolean {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+function parseRecordDate(value: string): Date {
+  return new Date(value);
+}
+
+function formatOperationalVehicle(value: OperationalReportRecord['vehicleType']) {
+  if (value === 'automotor') return 'Automotor';
+  if (value === 'placa') return 'Placa';
+  return 'Tracción humana';
+}
+
+function formatOperationalUserType(value: OperationalUserType) {
+  return OPERATIONAL_USER_TYPES.find((option) => option.value === value)?.label ?? value;
+}
+
+function parseDecimalField(value: string) {
+  const normalized = value.trim().replace(/\s+/g, '').replace(',', '.');
+  return Number(normalized);
+}
+
+function mapRecordToOperationalInput(record: OperationalReportRecord): OperationalReportRecordInput {
+  return toOperationalReportRecordInput(record);
+}
+
+function createInitialOperationalForm(): OperationalFormState {
+  const firstRoute = OPERATIONAL_MICRO_ROUTES[0];
+  const firstMaterial = OPERATIONAL_MATERIAL_CATALOG[0];
+
+  return {
+    macroRoute: firstRoute?.macroRoute ?? '1',
+    microRoute: firstRoute?.microRoute ?? '1.1',
+    linkedUsersCount: '1',
+    userType: 'residencial',
+    operatorName: '',
+    operatorIdentification: '',
+    vehicleType: 'automotor',
+    vehiclePlate: '',
+    associatedToEca: true,
+    materialFamily: firstMaterial?.family ?? 'Plásticos',
+    materialCode: firstMaterial?.code ?? '303',
+    quantityKg: '',
+    effectiveKg: '',
+    appliesDcto596: true,
+    forceAforado: false,
+  };
+}
+
 export default function AdminReportsScreen() {
   const router = useRouter();
+  const {
+    settings: operationalSettings,
+    setSettings: setOperationalSettings,
+    recordInputs: operationalRecordInputs,
+    setRecordInputs: setOperationalRecordInputs,
+    records: operationalRows,
+  } = useOperationalReports();
   const today = new Date();
   const [period, setPeriod] = useState<Period>('month');
-  const [reportMode, setReportMode] = useState<ReportMode>('sui');
+  const [reportMode, setReportMode] = useState<ReportMode>('operational');
   const [exporting, setExporting] = useState(false);
+  const [recordModalVisible, setRecordModalVisible] = useState(false);
+  const [operationalForm, setOperationalForm] = useState<OperationalFormState>(
+    createInitialOperationalForm,
+  );
 
   const [exportModalVisible, setExportModalVisible] = useState(false);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'csv'>('pdf');
@@ -145,6 +239,9 @@ export default function AdminReportsScreen() {
     financial: true,
     materials: true,
     recyclers: true,
+    summary: true,
+    records: true,
+    catalog: true,
   });
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewHtml, setPreviewHtml] = useState('');
@@ -155,12 +252,18 @@ export default function AdminReportsScreen() {
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [calendarTarget, setCalendarTarget] = useState<'from' | 'to'>('from');
   const [calendarMonth, setCalendarMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [macroRouteFilter, setMacroRouteFilter] = useState<'all' | string>('all');
+  const [microRouteFilter, setMicroRouteFilter] = useState<'all' | string>('all');
+  const [userTypeFilter, setUserTypeFilter] = useState<'all' | OperationalUserType>('all');
+  const [materialFamilyFilter, setMaterialFamilyFilter] = useState<'all' | OperationalMaterialFamily>('all');
+  const [aforadoFilter, setAforadoFilter] = useState<'all' | 'si' | 'no'>('all');
+  const [operatorCodeQuery, setOperatorCodeQuery] = useState('');
 
   const toggleField = (field: keyof typeof exportFields) => {
     setExportFields((prev) => ({ ...prev, [field]: !prev[field] }));
   };
   const now = new Date();
-  const data = REPORT_DATASETS[reportMode];
+  const data = REPORT_DATASETS[reportMode === 'operational' ? 'internal' : reportMode];
   const TOTAL_KG = data.totalKg;
   const TOTAL_VALUE = data.totalValue;
   const TREES_EQUIV = data.treesEquiv;
@@ -187,6 +290,102 @@ export default function AdminReportsScreen() {
     { label: 'Certificado de pesaje consolidado', value: 'Sí' },
     { label: 'Fecha de corte', value: formatDateTime(now) },
   ];
+  const operationalStartDate = parseDateLabel(dateFrom);
+  const operationalEndDate = parseDateLabel(dateTo);
+  const macroRouteOptions = Array.from(new Set(OPERATIONAL_MICRO_ROUTES.map((item) => item.macroRoute)));
+  const microRouteOptions = OPERATIONAL_MICRO_ROUTES
+    .filter((item) => macroRouteFilter === 'all' || item.macroRoute === macroRouteFilter)
+    .map((item) => item.microRoute);
+  const materialFamilyOptions = Array.from(
+    new Set(OPERATIONAL_MATERIAL_CATALOG.map((item) => item.family)),
+  );
+
+  const filteredOperationalRows = useMemo(() => {
+    return operationalRows.filter((row) => {
+      const rowDate = parseRecordDate(row.createdAt);
+      const startOk = operationalStartDate ? rowDate >= operationalStartDate : true;
+      const endBoundary = operationalEndDate
+        ? new Date(
+            operationalEndDate.getFullYear(),
+            operationalEndDate.getMonth(),
+            operationalEndDate.getDate(),
+            23,
+            59,
+            59,
+            999,
+          )
+        : null;
+      const endOk = endBoundary ? rowDate <= endBoundary : true;
+      const macroOk = macroRouteFilter === 'all' || row.macroRoute === macroRouteFilter;
+      const microOk = microRouteFilter === 'all' || row.microRoute === microRouteFilter;
+      const userTypeOk = userTypeFilter === 'all' || row.userType === userTypeFilter;
+      const materialOk =
+        materialFamilyFilter === 'all' || row.materialFamily === materialFamilyFilter;
+      const aforadoOk =
+        aforadoFilter === 'all' ||
+        (aforadoFilter === 'si' ? row.isAforado : !row.isAforado);
+      const operatorOk =
+        operatorCodeQuery.trim() === '' ||
+        row.operatorCode.toLowerCase().includes(operatorCodeQuery.trim().toLowerCase());
+
+      return (
+        startOk &&
+        endOk &&
+        macroOk &&
+        microOk &&
+        userTypeOk &&
+        materialOk &&
+        aforadoOk &&
+        operatorOk
+      );
+    });
+  }, [
+    aforadoFilter,
+    macroRouteFilter,
+    materialFamilyFilter,
+    microRouteFilter,
+    operationalEndDate,
+    operationalRows,
+    operationalStartDate,
+    operatorCodeQuery,
+    userTypeFilter,
+  ]);
+
+  const operationalFormMicroRouteOptions = OPERATIONAL_MICRO_ROUTES.filter(
+    (item) => item.macroRoute === operationalForm.macroRoute,
+  );
+  const operationalFormMaterialOptions = OPERATIONAL_MATERIAL_CATALOG.filter(
+    (item) => item.family === operationalForm.materialFamily,
+  );
+  const operationalFormMicroRouteConfig = getMicroRouteConfig(operationalForm.microRoute);
+  const operationalFormOperatorCode = buildOperatorCode(
+    operationalForm.operatorName,
+    operationalForm.operatorIdentification,
+  );
+  const operationalFormQuantityKg = parseDecimalField(operationalForm.quantityKg);
+  const operationalFormEffectiveKg =
+    operationalForm.effectiveKg.trim() === ''
+      ? operationalFormQuantityKg
+      : parseDecimalField(operationalForm.effectiveKg);
+  const operationalFormRejectedKg =
+    Number.isFinite(operationalFormQuantityKg) && Number.isFinite(operationalFormEffectiveKg)
+      ? Math.max(operationalFormQuantityKg - operationalFormEffectiveKg, 0)
+      : 0;
+  const operationalFormIsAforado =
+    operationalForm.forceAforado ||
+    (Number.isFinite(operationalFormQuantityKg) &&
+      operationalFormQuantityKg >= operationalSettings.aforadoThresholdKg);
+
+  const operationalSummary = useMemo(
+    () => ({
+      totalRecords: filteredOperationalRows.length,
+      totalKg: filteredOperationalRows.reduce((sum, row) => sum + row.quantityKg, 0),
+      totalRejectedKg: filteredOperationalRows.reduce((sum, row) => sum + row.rejectedKg, 0),
+      totalAforados: filteredOperationalRows.filter((row) => row.isAforado).length,
+      totalDcto596: filteredOperationalRows.filter((row) => row.appliesDcto596).length,
+    }),
+    [filteredOperationalRows],
+  );
 
   function handlePeriodChange(next: Period) {
     setPeriod(next);
@@ -236,7 +435,172 @@ export default function AdminReportsScreen() {
     setCalendarVisible(false);
   }
 
+  function updateOperationalForm<K extends keyof OperationalFormState>(
+    key: K,
+    value: OperationalFormState[K],
+  ) {
+    setOperationalForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function openOperationalRecordModal() {
+    setOperationalForm(createInitialOperationalForm());
+    setRecordModalVisible(true);
+  }
+
+  function handleOperationalSettingsChange<K extends keyof OperationalReportSettings>(
+    key: K,
+    value: OperationalReportSettings[K],
+  ) {
+    setOperationalSettings((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleOperationalMacroChange(nextMacroRoute: string) {
+    const fallbackMicroRoute =
+      OPERATIONAL_MICRO_ROUTES.find((item) => item.macroRoute === nextMacroRoute)?.microRoute ??
+      operationalForm.microRoute;
+
+    setOperationalForm((prev) => ({
+      ...prev,
+      macroRoute: nextMacroRoute,
+      microRoute: fallbackMicroRoute,
+    }));
+  }
+
+  function handleOperationalMicroRouteChange(nextMicroRoute: string) {
+    const routeConfig = getMicroRouteConfig(nextMicroRoute);
+
+    setOperationalForm((prev) => ({
+      ...prev,
+      microRoute: nextMicroRoute,
+      macroRoute: routeConfig?.macroRoute ?? prev.macroRoute,
+    }));
+  }
+
+  function handleOperationalMaterialFamilyChange(nextFamily: OperationalMaterialFamily) {
+    const nextMaterialCode =
+      OPERATIONAL_MATERIAL_CATALOG.find((item) => item.family === nextFamily)?.code ??
+      operationalForm.materialCode;
+
+    setOperationalForm((prev) => ({
+      ...prev,
+      materialFamily: nextFamily,
+      materialCode: nextMaterialCode,
+    }));
+  }
+
+  function handleSaveOperationalRecord() {
+    const operatorName = operationalForm.operatorName.trim();
+    const operatorIdentificationDigits = operationalForm.operatorIdentification.replace(/\D/g, '');
+    const quantityKg = parseDecimalField(operationalForm.quantityKg);
+    const effectiveKg =
+      operationalForm.effectiveKg.trim() === ''
+        ? quantityKg
+        : parseDecimalField(operationalForm.effectiveKg);
+    const linkedUsersCount = Number(operationalForm.linkedUsersCount.trim());
+
+    if (!operatorName) {
+      Alert.alert('Formulario incompleto', 'Ingresa el nombre del operador.');
+      return;
+    }
+
+    if (operatorIdentificationDigits.length < 5) {
+      Alert.alert(
+        'Identificación inválida',
+        'Ingresa un número de identificación válido para el operador.',
+      );
+      return;
+    }
+
+    if (!Number.isFinite(linkedUsersCount) || linkedUsersCount <= 0) {
+      Alert.alert(
+        'Usuarios vinculados',
+        'Ingresa una cantidad válida mayor a 0 para usuarios vinculados.',
+      );
+      return;
+    }
+
+    if (!Number.isFinite(quantityKg) || quantityKg <= 0) {
+      Alert.alert('Cantidad inválida', 'Ingresa una cantidad de kilogramos válida.');
+      return;
+    }
+
+    if (!Number.isFinite(effectiveKg) || effectiveKg < 0) {
+      Alert.alert('Kg aprovechados', 'Ingresa un valor válido para los kg aprovechados.');
+      return;
+    }
+
+    if (effectiveKg > quantityKg) {
+      Alert.alert(
+        'Rechazo inválido',
+        'Los kg aprovechados no pueden ser mayores a la cantidad total en kg.',
+      );
+      return;
+    }
+
+    if (operationalForm.vehicleType === 'placa' && operationalForm.vehiclePlate.trim() === '') {
+      Alert.alert('Placa requerida', 'Ingresa el número de placa para este registro.');
+      return;
+    }
+
+    const newRecord: OperationalReportRecordInput = {
+      id: `op-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      macroRoute: operationalForm.macroRoute,
+      microRoute: operationalForm.microRoute,
+      linkedUsersCount: Math.round(linkedUsersCount),
+      userType: operationalForm.userType,
+      operatorName,
+      operatorIdentification: operatorIdentificationDigits,
+      vehicleType: operationalForm.vehicleType,
+      vehiclePlate:
+        operationalForm.vehicleType === 'placa'
+          ? operationalForm.vehiclePlate.trim().toUpperCase()
+          : undefined,
+      materialCode: operationalForm.materialCode,
+      quantityKg,
+      effectiveKg,
+      appliesDcto596: operationalForm.appliesDcto596,
+      forceAforado: operationalForm.forceAforado,
+      associatedToEca: operationalForm.associatedToEca,
+    };
+
+    setOperationalRecordInputs((prev) => [newRecord, ...prev]);
+    setRecordModalVisible(false);
+    setOperationalForm(createInitialOperationalForm());
+    Alert.alert(
+      'Registro agregado',
+      'El registro operativo quedó listo para previsualizar y exportar.',
+    );
+  }
+
   function buildExportData() {
+    if (reportMode === 'operational') {
+      return {
+        title: operationalSettings.reportName,
+        dateRange: `${dateFrom} → ${dateTo}`,
+        fields: exportFields,
+        reportMode,
+        operationalData: {
+          filters: {
+            NUAP: operationalSettings.nuap,
+            NUECA: operationalSettings.nueca,
+            Macroruta: macroRouteFilter === 'all' ? 'Todas' : macroRouteFilter,
+            Microruta: microRouteFilter === 'all' ? 'Todas' : microRouteFilter,
+            'Tipo de usuario': userTypeFilter === 'all' ? 'Todos' : userTypeFilter,
+            'Familia material':
+              materialFamilyFilter === 'all' ? 'Todas' : materialFamilyFilter,
+            Aforado: aforadoFilter === 'all' ? 'Todos' : aforadoFilter,
+            'Código operador': operatorCodeQuery.trim() || 'Todos',
+            'Umbral aforado':
+              `${operationalSettings.aforadoThresholdKg.toLocaleString('es-CO')} kg`,
+          },
+          summary: operationalSummary,
+          records: filteredOperationalRows,
+          materialsCatalog: OPERATIONAL_MATERIAL_CATALOG,
+        },
+      };
+    }
+
     return {
       title: `Reporte ${reportMode === 'sui' ? 'SUI' : 'Interno'} (${period})`,
       dateRange: `${dateFrom} → ${dateTo}`,
@@ -307,7 +671,12 @@ export default function AdminReportsScreen() {
         <View>
           <Text style={styles.headerTitle}>Reportes</Text>
           <Text style={styles.headerSubtitle}>
-            {reportMode === 'sui' ? 'Modo SUI' : 'Modo Interno'} · Corte: {formatDateTime(now)}
+            {reportMode === 'operational'
+              ? operationalSettings.reportName
+              : reportMode === 'sui'
+                ? 'Modo SUI'
+                : 'Modo Interno'}{' '}
+            · Corte: {formatDateTime(now)}
           </Text>
         </View>
         <TouchableOpacity
@@ -325,6 +694,15 @@ export default function AdminReportsScreen() {
       </View>
 
       <View style={styles.modeContainer}>
+        <TouchableOpacity
+          style={[styles.modeBtn, reportMode === 'operational' && styles.modeBtnActive]}
+          onPress={() => setReportMode('operational')}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.modeBtnText, reportMode === 'operational' && styles.modeBtnTextActive]}>
+            Reporte operativo
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.modeBtn, reportMode === 'sui' && styles.modeBtnActive]}
           onPress={() => setReportMode('sui')}
@@ -394,192 +772,520 @@ export default function AdminReportsScreen() {
           <Ionicons name="calendar-clear-outline" size={16} color={theme.colors.textSecondary} />
           <Text style={styles.rangeHintText}>Rango aplicado: {dateFrom} → {dateTo}</Text>
         </View>
-
-        {reportMode === 'sui' && (
+        {reportMode === 'operational' ? (
           <>
-            <Text style={styles.sectionTitle}>Campos requeridos SUI</Text>
-            <View style={styles.suiCard}>
-              {SUI_REQUIRED_FIELDS.map((item, index) => (
-                <View key={item.label}>
-                  <View style={styles.suiRow}>
-                    <Text style={styles.suiLabel}>{item.label}</Text>
-                    <Text style={styles.suiValue}>{item.value}</Text>
+            <Text style={styles.sectionTitle}>Configuración del reporte operativo</Text>
+            <View style={styles.operationalConfigCard}>
+              <Text style={styles.operationalFormLabel}>Nombre del reporte</Text>
+              <TextInput
+                value={operationalSettings.reportName}
+                onChangeText={(value) => handleOperationalSettingsChange('reportName', value)}
+                placeholder="Reporte operativo"
+                placeholderTextColor={theme.colors.textMuted}
+                style={styles.operationalFormInput}
+              />
+
+              <View style={styles.operationalFormGrid}>
+                <View style={styles.operationalFormGridItem}>
+                  <Text style={styles.operationalFormLabel}>NUAP</Text>
+                  <TextInput
+                    value={operationalSettings.nuap}
+                    onChangeText={(value) => handleOperationalSettingsChange('nuap', value)}
+                    placeholder="NUAP-001"
+                    placeholderTextColor={theme.colors.textMuted}
+                    style={styles.operationalFormInput}
+                  />
+                </View>
+                <View style={styles.operationalFormGridItem}>
+                  <Text style={styles.operationalFormLabel}>NUECA</Text>
+                  <TextInput
+                    value={operationalSettings.nueca}
+                    onChangeText={(value) => handleOperationalSettingsChange('nueca', value)}
+                    placeholder="NUECA-001"
+                    placeholderTextColor={theme.colors.textMuted}
+                    style={styles.operationalFormInput}
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.operationalFormLabel}>Umbral aforado (kg)</Text>
+              <TextInput
+                value={String(operationalSettings.aforadoThresholdKg)}
+                onChangeText={(value) =>
+                  handleOperationalSettingsChange(
+                    'aforadoThresholdKg',
+                    Number(value.replace(/\D/g, '')) || 0,
+                  )
+                }
+                keyboardType="number-pad"
+                placeholder="50"
+                placeholderTextColor={theme.colors.textMuted}
+                style={styles.operationalFormInput}
+              />
+              <Text style={styles.operationalFormHelper}>
+                Si un registro supera este umbral, el sistema lo marcará como aforado.
+              </Text>
+            </View>
+
+            <View style={styles.operationalActionRow}>
+              <View style={styles.operationalActionInfo}>
+                <Text style={styles.operationalActionTitle}>Registros cargados</Text>
+                <Text style={styles.operationalActionSubtitle}>
+                  {operationalRows.length} registros listos. La mayoría de campos se llenan automáticamente desde el pesaje.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.operationalPrimaryAction}
+                onPress={() => router.push('/(admin)/new-weighing' as any)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="scale-outline" size={18} color={theme.colors.textOnPrimary} />
+                <Text style={styles.operationalPrimaryActionText}>Registrar pesaje</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.sectionTitle}>Filtros operativos</Text>
+            <View style={styles.operationalFilterCard}>
+              <TextInput
+                value={operatorCodeQuery}
+                onChangeText={setOperatorCodeQuery}
+                placeholder="Buscar por código de operador"
+                placeholderTextColor={theme.colors.textMuted}
+                style={styles.operationalSearchInput}
+              />
+
+              <Text style={styles.operationalFilterLabel}>Macroruta</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                <TouchableOpacity
+                  style={[styles.operationalChip, macroRouteFilter === 'all' && styles.operationalChipActive]}
+                  onPress={() => {
+                    setMacroRouteFilter('all');
+                    setMicroRouteFilter('all');
+                  }}
+                >
+                  <Text style={[styles.operationalChipText, macroRouteFilter === 'all' && styles.operationalChipTextActive]}>
+                    Todas
+                  </Text>
+                </TouchableOpacity>
+                {macroRouteOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[styles.operationalChip, macroRouteFilter === option && styles.operationalChipActive]}
+                    onPress={() => {
+                      setMacroRouteFilter(option);
+                      setMicroRouteFilter('all');
+                    }}
+                  >
+                    <Text style={[styles.operationalChipText, macroRouteFilter === option && styles.operationalChipTextActive]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.operationalFilterLabel}>Microruta</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                <TouchableOpacity
+                  style={[styles.operationalChip, microRouteFilter === 'all' && styles.operationalChipActive]}
+                  onPress={() => setMicroRouteFilter('all')}
+                >
+                  <Text style={[styles.operationalChipText, microRouteFilter === 'all' && styles.operationalChipTextActive]}>
+                    Todas
+                  </Text>
+                </TouchableOpacity>
+                {microRouteOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[styles.operationalChip, microRouteFilter === option && styles.operationalChipActive]}
+                    onPress={() => setMicroRouteFilter(option)}
+                  >
+                    <Text style={[styles.operationalChipText, microRouteFilter === option && styles.operationalChipTextActive]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.operationalFilterLabel}>Tipo de usuario</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                <TouchableOpacity
+                  style={[styles.operationalChip, userTypeFilter === 'all' && styles.operationalChipActive]}
+                  onPress={() => setUserTypeFilter('all')}
+                >
+                  <Text style={[styles.operationalChipText, userTypeFilter === 'all' && styles.operationalChipTextActive]}>
+                    Todos
+                  </Text>
+                </TouchableOpacity>
+                {OPERATIONAL_USER_TYPES.map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[styles.operationalChip, userTypeFilter === option.value && styles.operationalChipActive]}
+                    onPress={() => setUserTypeFilter(option.value)}
+                  >
+                    <Text style={[styles.operationalChipText, userTypeFilter === option.value && styles.operationalChipTextActive]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.operationalFilterLabel}>Familia material</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                <TouchableOpacity
+                  style={[styles.operationalChip, materialFamilyFilter === 'all' && styles.operationalChipActive]}
+                  onPress={() => setMaterialFamilyFilter('all')}
+                >
+                  <Text style={[styles.operationalChipText, materialFamilyFilter === 'all' && styles.operationalChipTextActive]}>
+                    Todas
+                  </Text>
+                </TouchableOpacity>
+                {materialFamilyOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[styles.operationalChip, materialFamilyFilter === option && styles.operationalChipActive]}
+                    onPress={() => setMaterialFamilyFilter(option)}
+                  >
+                    <Text style={[styles.operationalChipText, materialFamilyFilter === option && styles.operationalChipTextActive]}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.operationalFilterLabel}>Aforado</Text>
+              <View style={styles.operationalChipRow}>
+                {[
+                  { value: 'all' as const, label: 'Todos' },
+                  { value: 'si' as const, label: 'Sí' },
+                  { value: 'no' as const, label: 'No' },
+                ].map((option) => (
+                  <TouchableOpacity
+                    key={option.value}
+                    style={[styles.operationalChip, aforadoFilter === option.value && styles.operationalChipActive]}
+                    onPress={() => setAforadoFilter(option.value)}
+                  >
+                    <Text style={[styles.operationalChipText, aforadoFilter === option.value && styles.operationalChipTextActive]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <Text style={styles.sectionTitle}>Resumen del reporte</Text>
+            <View style={styles.operationalSummaryGrid}>
+              <View style={styles.operationalSummaryCard}>
+                <Text style={styles.operationalSummaryValue}>{operationalSummary.totalRecords}</Text>
+                <Text style={styles.operationalSummaryLabel}>Registros</Text>
+              </View>
+              <View style={styles.operationalSummaryCard}>
+                <Text style={styles.operationalSummaryValue}>
+                  {operationalSummary.totalKg.toLocaleString('es-CO')} kg
+                </Text>
+                <Text style={styles.operationalSummaryLabel}>Cantidad total</Text>
+              </View>
+              <View style={styles.operationalSummaryCard}>
+                <Text style={styles.operationalSummaryValue}>
+                  {operationalSummary.totalRejectedKg.toLocaleString('es-CO')} kg
+                </Text>
+                <Text style={styles.operationalSummaryLabel}>Rechazo</Text>
+              </View>
+              <View style={styles.operationalSummaryCard}>
+                <Text style={styles.operationalSummaryValue}>{operationalSummary.totalAforados}</Text>
+                <Text style={styles.operationalSummaryLabel}>Aforados</Text>
+              </View>
+            </View>
+
+            <Text style={styles.sectionTitle}>Vista previa del reporte</Text>
+            {filteredOperationalRows.length === 0 ? (
+              <View style={styles.operationalEmptyCard}>
+                <Ionicons name="document-text-outline" size={28} color={theme.colors.textMuted} />
+                <Text style={styles.operationalEmptyTitle}>Sin resultados</Text>
+                <Text style={styles.operationalEmptyText}>
+                  Ajusta los filtros o crea un nuevo registro para verlo aquí y exportarlo.
+                </Text>
+              </View>
+            ) : (
+              filteredOperationalRows.map((row) => (
+                <View key={row.id} style={styles.operationalRecordCard}>
+                  <View style={styles.operationalRecordHeader}>
+                    <View>
+                      <Text style={styles.operationalRecordTitle}>
+                        {row.operatorCode} · {row.operatorName}
+                      </Text>
+                      <Text style={styles.operationalRecordSubtitle}>
+                        {new Date(row.createdAt).toLocaleDateString('es-CO')} · Macroruta {row.macroRoute} / Microruta {row.microRoute}
+                      </Text>
+                    </View>
+                    <View style={[styles.operationalBadge, row.isAforado && styles.operationalBadgeActive]}>
+                      <Text style={[styles.operationalBadgeText, row.isAforado && styles.operationalBadgeTextActive]}>
+                        {row.isAforado ? 'Aforado' : 'Estándar'}
+                      </Text>
+                    </View>
                   </View>
-                  {index < SUI_REQUIRED_FIELDS.length - 1 && <View style={styles.divider} />}
+
+                  <View style={styles.operationalFieldGrid}>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>NUAP</Text>
+                      <Text style={styles.operationalFieldValue}>{row.nuap}</Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>NUECA</Text>
+                      <Text style={styles.operationalFieldValue}>{row.nueca}</Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Usuarios vinculados</Text>
+                      <Text style={styles.operationalFieldValue}>{row.linkedUsersCount}</Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Tipo usuario</Text>
+                      <Text style={styles.operationalFieldValue}>{row.userType}</Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Identificación</Text>
+                      <Text style={styles.operationalFieldValue}>{row.operatorIdentification}</Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Vehículo</Text>
+                      <Text style={styles.operationalFieldValue}>
+                        {formatOperationalVehicle(row.vehicleType)}
+                        {row.vehiclePlate ? ` · ${row.vehiclePlate}` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Frecuencia</Text>
+                      <Text style={styles.operationalFieldValue}>
+                        {row.frequencyDays.join(', ') || 'No aplica'}
+                      </Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Material</Text>
+                      <Text style={styles.operationalFieldValue}>
+                        {row.materialName} · {row.materialCode}
+                      </Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Cantidad kg</Text>
+                      <Text style={styles.operationalFieldValue}>
+                        {row.quantityKg.toLocaleString('es-CO')}
+                      </Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Rechazo</Text>
+                      <Text style={styles.operationalFieldValue}>
+                        {row.rejectedKg.toLocaleString('es-CO')} kg
+                      </Text>
+                    </View>
+                    <View style={styles.operationalFieldItem}>
+                      <Text style={styles.operationalFieldLabel}>Dcto 596</Text>
+                      <Text style={styles.operationalFieldValue}>
+                        {row.appliesDcto596 ? 'Sí' : 'No'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+
+            <Text style={styles.sectionTitle}>Catálogo de materiales</Text>
+            <View style={styles.operationalCatalogCard}>
+              {materialFamilyOptions.map((family) => {
+                const familyItems = OPERATIONAL_MATERIAL_CATALOG.filter((item) => item.family === family);
+                return (
+                  <View key={family} style={styles.operationalCatalogSection}>
+                    <Text style={styles.operationalCatalogTitle}>{family}</Text>
+                    <View style={styles.operationalCatalogChips}>
+                      {familyItems.map((item) => (
+                        <View key={item.code} style={styles.operationalCatalogChip}>
+                          <Text style={styles.operationalCatalogCode}>{item.code}</Text>
+                          <Text style={styles.operationalCatalogName}>{item.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        ) : (
+          <>
+            {reportMode === 'sui' && (
+              <>
+                <Text style={styles.sectionTitle}>Campos requeridos SUI</Text>
+                <View style={styles.suiCard}>
+                  {SUI_REQUIRED_FIELDS.map((item, index) => (
+                    <View key={item.label}>
+                      <View style={styles.suiRow}>
+                        <Text style={styles.suiLabel}>{item.label}</Text>
+                        <Text style={styles.suiValue}>{item.value}</Text>
+                      </View>
+                      {index < SUI_REQUIRED_FIELDS.length - 1 && <View style={styles.divider} />}
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+
+            {/* ── KPIs globales ────────────────────────────────── */}
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.primaryLight }]}>
+                  <Ionicons name="scale-outline" size={22} color={theme.colors.primary} />
+                </View>
+                <Text style={styles.kpiValue}>{TOTAL_KG.toLocaleString('es-CO')} kg</Text>
+                <Text style={styles.kpiLabel}>Material recolectado</Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.warningLight }]}>
+                  <Ionicons name="cash-outline" size={22} color={theme.colors.warning} />
+                </View>
+                <Text style={styles.kpiValue}>${(TOTAL_VALUE / 1_000_000).toFixed(2)}M</Text>
+                <Text style={styles.kpiLabel}>Ventas COP</Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.successLight }]}>
+                  <Ionicons name="leaf-outline" size={22} color={theme.colors.success} />
+                </View>
+                <Text style={styles.kpiValue}>{TREES_EQUIV} árboles</Text>
+                <Text style={styles.kpiLabel}>Equivalente ambiental</Text>
+              </View>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.infoLight }]}>
+                  <Ionicons name="cloud-outline" size={22} color={theme.colors.info} />
+                </View>
+                <Text style={styles.kpiValue}>{CO2_KG.toLocaleString('es-CO')} kg</Text>
+                <Text style={styles.kpiLabel}>CO₂ evitado</Text>
+              </View>
+            </View>
+
+            {/* ── Comparativo Compras / Ventas ──────────────────── */}
+            <Text style={styles.sectionTitle}>Comparativo Compras / Ventas</Text>
+            <View style={[styles.flowCard, { borderLeftColor: '#E65100' }]}>
+              <View style={styles.flowRow}>
+                <View style={[styles.flowIconBg, { backgroundColor: '#FFF3E0' }]}>
+                  <Ionicons name="arrow-down-circle-outline" size={22} color="#E65100" />
+                </View>
+                <View style={styles.flowInfo}>
+                  <Text style={styles.flowLabel}>Compras a Recicladores</Text>
+                  <Text style={[styles.flowAmount, { color: '#E65100' }]}>
+                    ${(COMPRAS_RECICLADORES / 1_000_000).toFixed(2)}M COP
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View style={[styles.flowCard, { borderLeftColor: theme.colors.success }]}>
+              <View style={styles.flowRow}>
+                <View style={[styles.flowIconBg, { backgroundColor: theme.colors.successLight }]}>
+                  <Ionicons name="arrow-up-circle-outline" size={22} color={theme.colors.success} />
+                </View>
+                <View style={styles.flowInfo}>
+                  <Text style={styles.flowLabel}>Ventas al Mercado</Text>
+                  <Text style={[styles.flowAmount, { color: theme.colors.success }]}>
+                    ${(VENTAS_MERCADO / 1_000_000).toFixed(2)}M COP
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View style={styles.compareBarCard}>
+              <View style={styles.compareBar}>
+                <View style={[styles.barCompra, { flex: COMPRAS_RECICLADORES }]} />
+                <View style={[styles.barMargen, { flex: MARGEN }]} />
+              </View>
+              <View style={styles.barLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#E65100' }]} />
+                  <Text style={styles.legendText}>
+                    Compras {Math.round((COMPRAS_RECICLADORES / VENTAS_MERCADO) * 100)}%
+                  </Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
+                  <Text style={styles.legendText}>Margen {MARGEN_PCT}%</Text>
+                </View>
+              </View>
+              <View style={[styles.flowRow, styles.marginRow]}>
+                <View style={[styles.flowIconBg, { backgroundColor: theme.colors.primaryLight }]}>
+                  <Ionicons name="trending-up-outline" size={22} color={theme.colors.primary} />
+                </View>
+                <View style={styles.flowInfo}>
+                  <Text style={styles.flowLabel}>Margen Operativo ({MARGEN_PCT}%)</Text>
+                  <Text style={[styles.flowAmount, { color: theme.colors.primary }]}>
+                    ${(MARGEN / 1_000_000).toFixed(2)}M COP
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <Text style={styles.sectionTitle}>Distribución por Material</Text>
+            <View style={styles.materialCard}>
+              {MATERIAL_STATS.map((mat, index) => (
+                <View key={mat.name}>
+                  <View style={styles.materialRow}>
+                    <View style={[styles.materialIconBg, { backgroundColor: mat.bgColor }]}>
+                      <Ionicons name={mat.icon as any} size={18} color={mat.color} />
+                    </View>
+                    <View style={styles.materialInfo}>
+                      <View style={styles.materialLabelRow}>
+                        <Text style={styles.materialName}>{mat.name}</Text>
+                        <Text style={styles.materialKg}>{mat.kg.toLocaleString('es-CO')} kg</Text>
+                      </View>
+                      <View style={styles.progressTrack}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${mat.percentage}%`, backgroundColor: mat.color },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                    <Text style={[styles.materialPercent, { color: mat.color }]}>
+                      {mat.percentage}%
+                    </Text>
+                  </View>
+                  {index < MATERIAL_STATS.length - 1 && <View style={styles.divider} />}
                 </View>
               ))}
             </View>
+
+            <Text style={styles.sectionTitle}>Top Recicladores</Text>
+            <View style={styles.recyclerCard}>
+              {TOP_RECYCLERS.map((r, index) => {
+                const medal = ['🥇', '🥈', '🥉'][index];
+                return (
+                  <View key={r.name}>
+                    <View style={styles.recyclerRow}>
+                      <Text style={styles.recyclerMedal}>{medal}</Text>
+                      <View style={styles.recyclerInfo}>
+                        <Text style={styles.recyclerName}>{r.name}</Text>
+                        <Text style={styles.recyclerMeta}>
+                          {r.routes} rutas · {r.kg.toLocaleString('es-CO')} kg
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => router.push('/(admin)/user-detail' as any)}>
+                        <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                    {index < TOP_RECYCLERS.length - 1 && <View style={styles.divider} />}
+                  </View>
+                );
+              })}
+            </View>
+
+            <CustomButton
+              label="Ver Análisis de Impacto"
+              leftIcon={
+                <Ionicons
+                  name="analytics-outline"
+                  size={18}
+                  color={theme.colors.primary}
+                />
+              }
+              variant="secondary"
+              onPress={() => router.push('/(admin)/impact' as any)}
+              style={styles.impactBtn}
+            />
           </>
         )}
-
-        {/* ── KPIs globales ────────────────────────────────── */}
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiCard}>
-            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.primaryLight }]}>
-              <Ionicons name="scale-outline" size={22} color={theme.colors.primary} />
-            </View>
-            <Text style={styles.kpiValue}>{TOTAL_KG.toLocaleString('es-CO')} kg</Text>
-            <Text style={styles.kpiLabel}>Material recolectado</Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.warningLight }]}>
-              <Ionicons name="cash-outline" size={22} color={theme.colors.warning} />
-            </View>
-            <Text style={styles.kpiValue}>${(TOTAL_VALUE / 1_000_000).toFixed(2)}M</Text>
-            <Text style={styles.kpiLabel}>Ventas COP</Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.successLight }]}>
-              <Ionicons name="leaf-outline" size={22} color={theme.colors.success} />
-            </View>
-            <Text style={styles.kpiValue}>{TREES_EQUIV} árboles</Text>
-            <Text style={styles.kpiLabel}>Equivalente ambiental</Text>
-          </View>
-          <View style={styles.kpiCard}>
-            <View style={[styles.kpiIconBg, { backgroundColor: theme.colors.infoLight }]}>
-              <Ionicons name="cloud-outline" size={22} color={theme.colors.info} />
-            </View>
-            <Text style={styles.kpiValue}>{CO2_KG.toLocaleString('es-CO')} kg</Text>
-            <Text style={styles.kpiLabel}>CO₂ evitado</Text>
-          </View>
-        </View>
-
-        {/* ── Comparativo Compras / Ventas ──────────────────── */}
-        <Text style={styles.sectionTitle}>Comparativo Compras / Ventas</Text>
-        <View style={[styles.flowCard, { borderLeftColor: '#E65100' }]}>
-          <View style={styles.flowRow}>
-            <View style={[styles.flowIconBg, { backgroundColor: '#FFF3E0' }]}>
-              <Ionicons name="arrow-down-circle-outline" size={22} color="#E65100" />
-            </View>
-            <View style={styles.flowInfo}>
-              <Text style={styles.flowLabel}>Compras a Recicladores</Text>
-              <Text style={[styles.flowAmount, { color: '#E65100' }]}>
-                ${(COMPRAS_RECICLADORES / 1_000_000).toFixed(2)}M COP
-              </Text>
-            </View>
-          </View>
-        </View>
-        <View style={[styles.flowCard, { borderLeftColor: theme.colors.success }]}>
-          <View style={styles.flowRow}>
-            <View style={[styles.flowIconBg, { backgroundColor: theme.colors.successLight }]}>
-              <Ionicons name="arrow-up-circle-outline" size={22} color={theme.colors.success} />
-            </View>
-            <View style={styles.flowInfo}>
-              <Text style={styles.flowLabel}>Ventas al Mercado</Text>
-              <Text style={[styles.flowAmount, { color: theme.colors.success }]}>
-                ${(VENTAS_MERCADO / 1_000_000).toFixed(2)}M COP
-              </Text>
-            </View>
-          </View>
-        </View>
-        {/* Barra visual proporcional */}
-        <View style={styles.compareBarCard}>
-          <View style={styles.compareBar}>
-            <View style={[styles.barCompra, { flex: COMPRAS_RECICLADORES }]} />
-            <View style={[styles.barMargen, { flex: MARGEN }]} />
-          </View>
-          <View style={styles.barLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#E65100' }]} />
-              <Text style={styles.legendText}>
-                Compras {Math.round((COMPRAS_RECICLADORES / VENTAS_MERCADO) * 100)}%
-              </Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: theme.colors.primary }]} />
-              <Text style={styles.legendText}>Margen {MARGEN_PCT}%</Text>
-            </View>
-          </View>
-          <View style={[styles.flowRow, styles.marginRow]}>
-            <View style={[styles.flowIconBg, { backgroundColor: theme.colors.primaryLight }]}>
-              <Ionicons name="trending-up-outline" size={22} color={theme.colors.primary} />
-            </View>
-            <View style={styles.flowInfo}>
-              <Text style={styles.flowLabel}>Margen Operativo ({MARGEN_PCT}%)</Text>
-              <Text style={[styles.flowAmount, { color: theme.colors.primary }]}>
-                ${(MARGEN / 1_000_000).toFixed(2)}M COP
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ── Por tipo de material ──────────────────────────── */}
-        <Text style={styles.sectionTitle}>Distribución por Material</Text>
-        <View style={styles.materialCard}>
-          {MATERIAL_STATS.map((mat, index) => (
-            <View key={mat.name}>
-              <View style={styles.materialRow}>
-                {/* Ícono */}
-                <View style={[styles.materialIconBg, { backgroundColor: mat.bgColor }]}>
-                  <Ionicons name={mat.icon as any} size={18} color={mat.color} />
-                </View>
-
-                {/* Info */}
-                <View style={styles.materialInfo}>
-                  <View style={styles.materialLabelRow}>
-                    <Text style={styles.materialName}>{mat.name}</Text>
-                    <Text style={styles.materialKg}>{mat.kg.toLocaleString('es-CO')} kg</Text>
-                  </View>
-                  {/* Barra de progreso */}
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${mat.percentage}%`, backgroundColor: mat.color },
-                      ]}
-                    />
-                  </View>
-                </View>
-
-                {/* Porcentaje */}
-                <Text style={[styles.materialPercent, { color: mat.color }]}>
-                  {mat.percentage}%
-                </Text>
-              </View>
-              {index < MATERIAL_STATS.length - 1 && <View style={styles.divider} />}
-            </View>
-          ))}
-        </View>
-
-        {/* ── Top recicladores ──────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Top Recicladores</Text>
-        <View style={styles.recyclerCard}>
-          {TOP_RECYCLERS.map((r, index) => {
-            const medal = ['🥇', '🥈', '🥉'][index];
-            return (
-              <View key={r.name}>
-                <View style={styles.recyclerRow}>
-                  <Text style={styles.recyclerMedal}>{medal}</Text>
-                  <View style={styles.recyclerInfo}>
-                    <Text style={styles.recyclerName}>{r.name}</Text>
-                    <Text style={styles.recyclerMeta}>
-                      {r.routes} rutas · {r.kg.toLocaleString('es-CO')} kg
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => router.push('/(admin)/user-detail' as any)}>
-                    <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
-                  </TouchableOpacity>
-                </View>
-                {index < TOP_RECYCLERS.length - 1 && <View style={styles.divider} />}
-              </View>
-            );
-          })}
-        </View>
-
-        {/* ── Ver impacto detallado ─────────────────────────── */}
-        <CustomButton
-          label="Ver Análisis de Impacto"
-          leftIcon={
-            <Ionicons
-              name="analytics-outline"
-              size={18}
-              color={theme.colors.primary}
-            />
-          }
-          variant="secondary"
-          onPress={() => router.push('/(admin)/impact' as any)}
-          style={styles.impactBtn}
-        />
       </ScrollView>
 
       <Modal
@@ -639,6 +1345,356 @@ export default function AdminReportsScreen() {
                   </TouchableOpacity>
                 );
               })}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={recordModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setRecordModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.operationalModalContent]}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Nuevo registro operativo</Text>
+                <Text style={styles.operationalModalSubtitle}>
+                  Llena el formulario y el registro quedará listo para exportar.
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setRecordModalVisible(false)}>
+                <Ionicons name="close" size={22} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.operationalModalScroll}
+            >
+              <View style={styles.operationalFormSection}>
+                <Text style={styles.operationalFormSectionTitle}>Campos automáticos</Text>
+                <View style={styles.operationalAutoGrid}>
+                  <View style={styles.operationalAutoItem}>
+                    <Text style={styles.operationalAutoLabel}>Fecha</Text>
+                    <Text style={styles.operationalAutoValue}>
+                      {new Date().toLocaleDateString('es-CO')}
+                    </Text>
+                  </View>
+                  <View style={styles.operationalAutoItem}>
+                    <Text style={styles.operationalAutoLabel}>Código operador</Text>
+                    <Text style={styles.operationalAutoValue}>{operationalFormOperatorCode}</Text>
+                  </View>
+                  <View style={styles.operationalAutoItem}>
+                    <Text style={styles.operationalAutoLabel}>Frecuencia</Text>
+                    <Text style={styles.operationalAutoValue}>
+                      {operationalForm.associatedToEca
+                        ? operationalFormMicroRouteConfig?.frequencyDays.join(', ') || 'No aplica'
+                        : 'No aplica'}
+                    </Text>
+                  </View>
+                  <View style={styles.operationalAutoItem}>
+                    <Text style={styles.operationalAutoLabel}>Rechazo estimado</Text>
+                    <Text style={styles.operationalAutoValue}>
+                      {operationalFormRejectedKg.toLocaleString('es-CO')} kg
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.operationalFormSection}>
+                <Text style={styles.operationalFormSectionTitle}>Configuración base</Text>
+                <View style={styles.operationalFormGrid}>
+                  <View style={styles.operationalFormGridItem}>
+                    <Text style={styles.operationalFormLabel}>NUAP</Text>
+                    <TextInput
+                      value={operationalSettings.nuap}
+                      onChangeText={(value) => handleOperationalSettingsChange('nuap', value)}
+                      placeholderTextColor={theme.colors.textMuted}
+                      style={styles.operationalFormInput}
+                    />
+                  </View>
+                  <View style={styles.operationalFormGridItem}>
+                    <Text style={styles.operationalFormLabel}>NUECA</Text>
+                    <TextInput
+                      value={operationalSettings.nueca}
+                      onChangeText={(value) => handleOperationalSettingsChange('nueca', value)}
+                      placeholderTextColor={theme.colors.textMuted}
+                      style={styles.operationalFormInput}
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.operationalFormLabel}>Macroruta</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                  {macroRouteOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[styles.operationalChip, operationalForm.macroRoute === option && styles.operationalChipActive]}
+                      onPress={() => handleOperationalMacroChange(option)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.macroRoute === option && styles.operationalChipTextActive]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <Text style={styles.operationalFormLabel}>Microruta</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                  {operationalFormMicroRouteOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.microRoute}
+                      style={[styles.operationalChip, operationalForm.microRoute === option.microRoute && styles.operationalChipActive]}
+                      onPress={() => handleOperationalMicroRouteChange(option.microRoute)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.microRoute === option.microRoute && styles.operationalChipTextActive]}>
+                        {option.microRoute}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <Text style={styles.operationalFormLabel}>Asociado a la ECA</Text>
+                <View style={styles.operationalChipRow}>
+                  {[
+                    { value: true, label: 'Sí' },
+                    { value: false, label: 'No' },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={String(option.value)}
+                      style={[styles.operationalChip, operationalForm.associatedToEca === option.value && styles.operationalChipActive]}
+                      onPress={() => updateOperationalForm('associatedToEca', option.value)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.associatedToEca === option.value && styles.operationalChipTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.operationalFormSection}>
+                <Text style={styles.operationalFormSectionTitle}>Operador</Text>
+                <Text style={styles.operationalFormLabel}>Nombre del operador</Text>
+                <TextInput
+                  value={operationalForm.operatorName}
+                  onChangeText={(value) => updateOperationalForm('operatorName', value)}
+                  placeholder="Ej. Juan Pérez"
+                  placeholderTextColor={theme.colors.textMuted}
+                  style={styles.operationalFormInput}
+                />
+
+                <View style={styles.operationalFormGrid}>
+                  <View style={styles.operationalFormGridItem}>
+                    <Text style={styles.operationalFormLabel}>Identificación</Text>
+                    <TextInput
+                      value={operationalForm.operatorIdentification}
+                      onChangeText={(value) => updateOperationalForm('operatorIdentification', value)}
+                      placeholder="Cédula"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="number-pad"
+                      style={styles.operationalFormInput}
+                    />
+                  </View>
+                  <View style={styles.operationalFormGridItem}>
+                    <Text style={styles.operationalFormLabel}>Usuarios vinculados</Text>
+                    <TextInput
+                      value={operationalForm.linkedUsersCount}
+                      onChangeText={(value) => updateOperationalForm('linkedUsersCount', value)}
+                      placeholder="1"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="number-pad"
+                      style={styles.operationalFormInput}
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.operationalFormLabel}>Tipo de usuario</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                  {OPERATIONAL_USER_TYPES.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[styles.operationalChip, operationalForm.userType === option.value && styles.operationalChipActive]}
+                      onPress={() => updateOperationalForm('userType', option.value)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.userType === option.value && styles.operationalChipTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.operationalFormSection}>
+                <Text style={styles.operationalFormSectionTitle}>Vehículo y material</Text>
+                <Text style={styles.operationalFormLabel}>Tipo de vehículo</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                  {OPERATIONAL_VEHICLE_TYPES.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[styles.operationalChip, operationalForm.vehicleType === option.value && styles.operationalChipActive]}
+                      onPress={() => {
+                        updateOperationalForm('vehicleType', option.value);
+                        if (option.value !== 'placa') {
+                          updateOperationalForm('vehiclePlate', '');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.vehicleType === option.value && styles.operationalChipTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {operationalForm.vehicleType === 'placa' && (
+                  <>
+                    <Text style={styles.operationalFormLabel}>Número de placa</Text>
+                    <TextInput
+                      value={operationalForm.vehiclePlate}
+                      onChangeText={(value) => updateOperationalForm('vehiclePlate', value.toUpperCase())}
+                      placeholder="ABC-123"
+                      placeholderTextColor={theme.colors.textMuted}
+                      autoCapitalize="characters"
+                      style={styles.operationalFormInput}
+                    />
+                  </>
+                )}
+
+                <Text style={styles.operationalFormLabel}>Familia de material</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                  {materialFamilyOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[styles.operationalChip, operationalForm.materialFamily === option && styles.operationalChipActive]}
+                      onPress={() => handleOperationalMaterialFamilyChange(option)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.materialFamily === option && styles.operationalChipTextActive]}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <Text style={styles.operationalFormLabel}>Material / código</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
+                  {operationalFormMaterialOptions.map((option) => (
+                    <TouchableOpacity
+                      key={option.code}
+                      style={[styles.operationalChip, operationalForm.materialCode === option.code && styles.operationalChipActive]}
+                      onPress={() => updateOperationalForm('materialCode', option.code)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.materialCode === option.code && styles.operationalChipTextActive]}>
+                        {option.code} · {option.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+
+              <View style={styles.operationalFormSection}>
+                <Text style={styles.operationalFormSectionTitle}>Pesaje</Text>
+                <View style={styles.operationalFormGrid}>
+                  <View style={styles.operationalFormGridItem}>
+                    <Text style={styles.operationalFormLabel}>Cantidad kg</Text>
+                    <TextInput
+                      value={operationalForm.quantityKg}
+                      onChangeText={(value) => updateOperationalForm('quantityKg', value)}
+                      placeholder="0"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="decimal-pad"
+                      style={styles.operationalFormInput}
+                    />
+                  </View>
+                  <View style={styles.operationalFormGridItem}>
+                    <Text style={styles.operationalFormLabel}>Kg aprovechados</Text>
+                    <TextInput
+                      value={operationalForm.effectiveKg}
+                      onChangeText={(value) => updateOperationalForm('effectiveKg', value)}
+                      placeholder="0"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="decimal-pad"
+                      style={styles.operationalFormInput}
+                    />
+                  </View>
+                </View>
+
+                <Text style={styles.operationalFormLabel}>¿Aplica Dcto 596?</Text>
+                <View style={styles.operationalChipRow}>
+                  {[
+                    { value: true, label: 'Sí' },
+                    { value: false, label: 'No' },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={`dcto-${String(option.value)}`}
+                      style={[styles.operationalChip, operationalForm.appliesDcto596 === option.value && styles.operationalChipActive]}
+                      onPress={() => updateOperationalForm('appliesDcto596', option.value)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.appliesDcto596 === option.value && styles.operationalChipTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.operationalFormLabel}>Aforado manual</Text>
+                <View style={styles.operationalChipRow}>
+                  {[
+                    { value: false, label: 'Automático' },
+                    { value: true, label: 'Forzar sí' },
+                  ].map((option) => (
+                    <TouchableOpacity
+                      key={`aforado-${String(option.value)}`}
+                      style={[styles.operationalChip, operationalForm.forceAforado === option.value && styles.operationalChipActive]}
+                      onPress={() => updateOperationalForm('forceAforado', option.value)}
+                    >
+                      <Text style={[styles.operationalChipText, operationalForm.forceAforado === option.value && styles.operationalChipTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <View style={styles.operationalStatusCard}>
+                  <Text style={styles.operationalStatusTitle}>Vista rápida del registro</Text>
+                  <Text style={styles.operationalStatusText}>
+                    {formatOperationalUserType(operationalForm.userType)} ·{' '}
+                    {formatOperationalVehicle(operationalForm.vehicleType)} ·{' '}
+                    {operationalFormIsAforado ? 'Aforado' : 'Estándar'}
+                  </Text>
+                  <Text style={styles.operationalStatusText}>
+                    Material seleccionado: {operationalForm.materialCode}
+                  </Text>
+                  <Text style={styles.operationalStatusText}>
+                    Rechazo calculado: {operationalFormRejectedKg.toLocaleString('es-CO')} kg
+                  </Text>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.operationalModalActions}>
+              <TouchableOpacity
+                style={styles.operationalSecondaryAction}
+                onPress={() => setRecordModalVisible(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.operationalSecondaryActionText}>Cancelar</Text>
+              </TouchableOpacity>
+              <CustomButton
+                label="Guardar registro"
+                onPress={handleSaveOperationalRecord}
+                style={styles.operationalModalSubmit}
+                leftIcon={
+                  <Ionicons
+                    name="save-outline"
+                    size={18}
+                    color={theme.colors.textOnPrimary}
+                  />
+                }
+              />
             </View>
           </View>
         </View>
@@ -718,67 +1774,124 @@ export default function AdminReportsScreen() {
                 En modo SUI se incluye automáticamente la sección de campos requeridos SUI.
               </Text>
             )}
+            {reportMode === 'operational' && (
+              <Text style={styles.suiExportHint}>
+                En el reporte operativo se exportan los filtros aplicados y puedes incluir resumen,
+                detalle de registros y catálogo de materiales.
+              </Text>
+            )}
 
             <View style={styles.checkboxGroup}>
-              <TouchableOpacity
-                style={[styles.checkboxRow, exportFields.kpi && styles.checkboxRowActive]}
-                onPress={() => toggleField('kpi')}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={exportFields.kpi ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                  color={exportFields.kpi ? theme.colors.primary : theme.colors.textMuted}
-                />
-                <Text style={[styles.checkboxLabel, exportFields.kpi && styles.checkboxLabelActive]}>
-                  Métricas Globales (KPIs)
-                </Text>
-              </TouchableOpacity>
+              {reportMode === 'operational' ? (
+                <>
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, exportFields.summary && styles.checkboxRowActive]}
+                    onPress={() => toggleField('summary')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={exportFields.summary ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={exportFields.summary ? theme.colors.primary : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.checkboxLabel, exportFields.summary && styles.checkboxLabelActive]}>
+                      Resumen operativo
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.checkboxRow, exportFields.financial && styles.checkboxRowActive]}
-                onPress={() => toggleField('financial')}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={exportFields.financial ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                  color={exportFields.financial ? theme.colors.primary : theme.colors.textMuted}
-                />
-                <Text style={[styles.checkboxLabel, exportFields.financial && styles.checkboxLabelActive]}>
-                  Comparativo Compras / Ventas
-                </Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, exportFields.records && styles.checkboxRowActive]}
+                    onPress={() => toggleField('records')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={exportFields.records ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={exportFields.records ? theme.colors.primary : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.checkboxLabel, exportFields.records && styles.checkboxLabelActive]}>
+                      Registros detallados
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.checkboxRow, exportFields.materials && styles.checkboxRowActive]}
-                onPress={() => toggleField('materials')}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={exportFields.materials ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                  color={exportFields.materials ? theme.colors.primary : theme.colors.textMuted}
-                />
-                <Text style={[styles.checkboxLabel, exportFields.materials && styles.checkboxLabelActive]}>
-                  Distribución por Material
-                </Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, exportFields.catalog && styles.checkboxRowActive]}
+                    onPress={() => toggleField('catalog')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={exportFields.catalog ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={exportFields.catalog ? theme.colors.primary : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.checkboxLabel, exportFields.catalog && styles.checkboxLabelActive]}>
+                      Catálogo de materiales
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, exportFields.kpi && styles.checkboxRowActive]}
+                    onPress={() => toggleField('kpi')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={exportFields.kpi ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={exportFields.kpi ? theme.colors.primary : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.checkboxLabel, exportFields.kpi && styles.checkboxLabelActive]}>
+                      Métricas Globales (KPIs)
+                    </Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.checkboxRow, exportFields.recyclers && styles.checkboxRowActive]}
-                onPress={() => toggleField('recyclers')}
-                activeOpacity={0.8}
-              >
-                <Ionicons
-                  name={exportFields.recyclers ? 'checkmark-circle' : 'ellipse-outline'}
-                  size={22}
-                  color={exportFields.recyclers ? theme.colors.primary : theme.colors.textMuted}
-                />
-                <Text style={[styles.checkboxLabel, exportFields.recyclers && styles.checkboxLabelActive]}>
-                  Top Recicladores
-                </Text>
-              </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, exportFields.financial && styles.checkboxRowActive]}
+                    onPress={() => toggleField('financial')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={exportFields.financial ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={exportFields.financial ? theme.colors.primary : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.checkboxLabel, exportFields.financial && styles.checkboxLabelActive]}>
+                      Comparativo Compras / Ventas
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, exportFields.materials && styles.checkboxRowActive]}
+                    onPress={() => toggleField('materials')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={exportFields.materials ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={exportFields.materials ? theme.colors.primary : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.checkboxLabel, exportFields.materials && styles.checkboxLabelActive]}>
+                      Distribución por Material
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.checkboxRow, exportFields.recyclers && styles.checkboxRowActive]}
+                    onPress={() => toggleField('recyclers')}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={exportFields.recyclers ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={exportFields.recyclers ? theme.colors.primary : theme.colors.textMuted}
+                    />
+                    <Text style={[styles.checkboxLabel, exportFields.recyclers && styles.checkboxLabelActive]}>
+                      Top Recicladores
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
 
             <CustomButton
@@ -1116,6 +2229,402 @@ const styles = StyleSheet.create({
   },
 
   impactBtn: {},
+
+  // ── Reporte operativo ───────────────────────────────────
+  operationalConfigCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  operationalFormGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+  },
+  operationalFormGridItem: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+  },
+  operationalFormLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.weights.semibold,
+    marginBottom: theme.spacing.xs,
+  },
+  operationalFormInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  operationalFormHelper: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+  },
+  operationalConfigRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+  },
+  operationalConfigLabel: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.weights.medium,
+  },
+  operationalConfigValue: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  operationalActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+  },
+  operationalActionInfo: {
+    flex: 1,
+    minWidth: 220,
+  },
+  operationalActionTitle: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+    marginBottom: 2,
+  },
+  operationalActionSubtitle: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+  },
+  operationalPrimaryAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    minHeight: 44,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary,
+  },
+  operationalPrimaryActionText: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textOnPrimary,
+  },
+  operationalFilterCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  operationalSearchInput: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.md,
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    backgroundColor: theme.colors.surfaceAlt,
+    marginBottom: theme.spacing.sm,
+  },
+  operationalFilterLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.weights.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginTop: theme.spacing.sm,
+  },
+  operationalChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  operationalChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  operationalChipActive: {
+    backgroundColor: theme.colors.primaryLight,
+    borderColor: theme.colors.primary,
+  },
+  operationalChipText: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.weights.medium,
+  },
+  operationalChipTextActive: {
+    color: theme.colors.primaryDark,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  operationalSummaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+  },
+  operationalSummaryCard: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+  },
+  operationalSummaryValue: {
+    fontSize: theme.typography.sizes.h3,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.primaryDark,
+    marginBottom: theme.spacing.xs,
+  },
+  operationalSummaryLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+  },
+  operationalEmptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.xxxl,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.lg,
+  },
+  operationalEmptyTitle: {
+    fontSize: theme.typography.sizes.h4,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  operationalEmptyText: {
+    textAlign: 'center',
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.sizes.body,
+  },
+  operationalRecordCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  operationalRecordHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  operationalRecordTitle: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  operationalRecordSubtitle: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  operationalBadge: {
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 6,
+    borderRadius: theme.radius.xl,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  operationalBadgeActive: {
+    backgroundColor: theme.colors.primaryLight,
+    borderColor: theme.colors.primary,
+  },
+  operationalBadgeText: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.weights.medium,
+  },
+  operationalBadgeTextActive: {
+    color: theme.colors.primaryDark,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  operationalFieldGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+  },
+  operationalFieldItem: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+  },
+  operationalFieldLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  operationalFieldValue: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.weights.medium,
+  },
+  operationalCatalogCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    marginBottom: theme.spacing.xxl,
+    gap: theme.spacing.lg,
+  },
+  operationalCatalogSection: {
+    gap: theme.spacing.sm,
+  },
+  operationalCatalogTitle: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  operationalCatalogChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  operationalCatalogChip: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+    minWidth: 120,
+  },
+  operationalCatalogCode: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.primary,
+    fontWeight: theme.typography.weights.bold,
+    marginBottom: 2,
+  },
+  operationalCatalogName: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textPrimary,
+  },
+  operationalModalContent: {
+    maxHeight: '94%',
+  },
+  operationalModalSubtitle: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  operationalModalScroll: {
+    gap: theme.spacing.lg,
+    paddingBottom: theme.spacing.lg,
+  },
+  operationalFormSection: {
+    gap: theme.spacing.sm,
+  },
+  operationalFormSectionTitle: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  operationalAutoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+  },
+  operationalAutoItem: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  operationalAutoLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  operationalAutoValue: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  operationalStatusCard: {
+    backgroundColor: theme.colors.primaryLight,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    gap: 4,
+  },
+  operationalStatusTitle: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.primaryDark,
+  },
+  operationalStatusText: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.primaryDark,
+  },
+  operationalModalActions: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginTop: theme.spacing.sm,
+  },
+  operationalSecondaryAction: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  operationalSecondaryActionText: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textSecondary,
+  },
+  operationalModalSubmit: {
+    flex: 1,
+  },
 
   // ── Compras / Ventas ─────────────────────────────────────
   flowCard: {

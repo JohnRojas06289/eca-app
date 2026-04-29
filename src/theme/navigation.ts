@@ -4,6 +4,8 @@ import { theme } from './theme';
 import { isWeb, webLayout } from './responsive';
 
 export function createTabScreenOptions(useDesktopRail = isWeb): BottomTabNavigationOptions {
+  const useMobileWebTabs = isWeb && !useDesktopRail;
+
   return {
     headerShown: false,
     tabBarActiveTintColor: useDesktopRail ? theme.colors.primaryDark : theme.colors.primary,
@@ -35,6 +37,10 @@ export function createTabScreenOptions(useDesktopRail = isWeb): BottomTabNavigat
             elevation: 0,
           }
         : {
+            width: useMobileWebTabs ? '100%' : undefined,
+            maxWidth: useMobileWebTabs ? '100%' : undefined,
+            minWidth: useMobileWebTabs ? 0 : undefined,
+            overflow: useMobileWebTabs ? 'hidden' : undefined,
             borderTopWidth: 1,
             borderTopColor: theme.colors.border,
             height: Platform.OS === 'ios' ? theme.sizes.tabBarHeightIos : theme.sizes.tabBarHeight,
@@ -54,7 +60,14 @@ export function createTabScreenOptions(useDesktopRail = isWeb): BottomTabNavigat
             paddingHorizontal: theme.spacing.xs,
             alignSelf: 'center',
           }
-        : {}),
+        : useMobileWebTabs
+          ? {
+              flex: 1,
+              minWidth: 0,
+              maxWidth: '100%',
+              paddingHorizontal: 0,
+            }
+          : {}),
     },
     tabBarIconStyle: {
       ...(useDesktopRail

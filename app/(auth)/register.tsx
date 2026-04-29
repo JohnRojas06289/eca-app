@@ -28,6 +28,9 @@ interface FormErrors {
   email: string;
   phone: string;
   role: string;
+  password: string;
+  confirmPassword: string;
+  submit: string;
 }
 
 export default function RegisterScreen() {
@@ -36,6 +39,8 @@ export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState<RegisterRole | null>(null);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({
@@ -43,10 +48,21 @@ export default function RegisterScreen() {
     email: '',
     phone: '',
     role: '',
+    password: '',
+    confirmPassword: '',
+    submit: '',
   });
 
   function validate(): boolean {
-    const newErrors: FormErrors = { name: '', email: '', phone: '', role: '' };
+    const newErrors: FormErrors = {
+      name: '',
+      email: '',
+      phone: '',
+      role: '',
+      password: '',
+      confirmPassword: '',
+      submit: '',
+    };
     let valid = true;
 
     if (!name.trim()) {
@@ -71,6 +87,14 @@ export default function RegisterScreen() {
       newErrors.role = 'Seleccione un rol para continuar';
       valid = false;
     }
+    if (password.length < 8) {
+      newErrors.password = 'La contraseña debe tener al menos 8 caracteres';
+      valid = false;
+    }
+    if (password !== confirmPassword) {
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
+      valid = false;
+    }
 
     setErrors(newErrors);
     return valid;
@@ -81,7 +105,7 @@ export default function RegisterScreen() {
     setLoading(true);
     try {
       if (API_BASE_URL && !USE_DEMO_AUTH && role) {
-        await registerWithApi({ name, email, phone, role });
+        await registerWithApi({ name, email, phone, role, password });
       } else {
         // Modo demo controlado por env: permite revisar el frontend sin backend.
         await new Promise((r) => setTimeout(r, 800));
@@ -90,8 +114,9 @@ export default function RegisterScreen() {
         pathname: '/(auth)/verify-code',
         params: { flow: 'register', phone: phone.slice(-4) },
       });
-    } catch {
-      // Manejar error de la API
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No fue posible crear la cuenta.';
+      setErrors((prev) => ({ ...prev, submit: message }));
     } finally {
       setLoading(false);
     }
@@ -168,6 +193,24 @@ export default function RegisterScreen() {
             keyboardType="phone-pad"
             error={errors.phone}
           />
+          <CustomInput
+            label="Contraseña"
+            leftIcon="lock-closed-outline"
+            placeholder="Mínimo 8 caracteres"
+            value={password}
+            onChangeText={setPassword}
+            isPassword
+            error={errors.password}
+          />
+          <CustomInput
+            label="Confirmar Contraseña"
+            leftIcon="lock-closed-outline"
+            placeholder="Repite tu contraseña"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            isPassword
+            error={errors.confirmPassword}
+          />
 
           {/* ── Selección de Rol ───────────────────────────── */}
           <Text style={styles.roleLabel}>Selecciona tu Rol</Text>
@@ -190,6 +233,10 @@ export default function RegisterScreen() {
             selected={role === 'citizen'}
             onPress={() => setRole('citizen')}
           />
+
+          {errors.submit !== '' && (
+            <Text style={styles.submitError}>{errors.submit}</Text>
+          )}
 
           {/* ── Botón y link de login ──────────────────────── */}
           <CustomButton
@@ -283,6 +330,12 @@ const styles = StyleSheet.create({
   roleError: {
     fontSize: theme.typography.sizes.small,
     color: theme.colors.error,
+    marginBottom: theme.spacing.sm,
+  },
+  submitError: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.error,
+    marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
   },
 

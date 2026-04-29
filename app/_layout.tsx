@@ -3,6 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { AuthProvider, useAuth } from '@/src/hooks/useAuth';
 import { UsersProvider } from '@/src/context/UsersContext';
+import { OperationalReportsProvider } from '@/src/context/OperationalReportsContext';
 import { theme } from '@/src/theme/theme';
 import { ChatBot } from '@/src/components/ChatBot';
 import { isWeb, webLayout } from '@/src/theme/responsive';
@@ -23,7 +24,9 @@ export default function RootLayout() {
   return (
     <AuthProvider>
       <UsersProvider>
-        <RootNavigator />
+        <OperationalReportsProvider>
+          <RootNavigator />
+        </OperationalReportsProvider>
       </UsersProvider>
     </AuthProvider>
   );

@@ -11,6 +11,7 @@ interface RegisterPayload {
   email: string;
   phone: string;
   role: Extract<UserRole, 'citizen' | 'recycler'>;
+  password: string;
 }
 
 function normalizeRole(value: unknown): UserRole {

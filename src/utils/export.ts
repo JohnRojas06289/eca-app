@@ -2,24 +2,96 @@ import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
+import type {
+  OperationalMaterialCatalogItem,
+  OperationalReportRecord,
+  OperationalVehicleType,
+} from '@/src/constants/operationalReport';
 
 interface ExportData {
   title: string;
   fields: Record<string, boolean>;
-  reportMode?: 'sui' | 'internal';
+  reportMode?: 'sui' | 'internal' | 'operational';
   dateRange?: string;
   kpiData?: Record<string, any>;
   financialData?: { compras: number; ventas: number; margen: number; margenPct: number };
   materialsData?: { name: string; kg: number; percentage: number }[];
   recyclersData?: { name: string; kg: number; routes: number }[];
   suiData?: { label: string; value: string }[];
+  operationalData?: {
+    filters: Record<string, string>;
+    summary: {
+      totalRecords: number;
+      totalKg: number;
+      totalRejectedKg: number;
+      totalAforados: number;
+      totalDcto596: number;
+    };
+    records: OperationalReportRecord[];
+    materialsCatalog: OperationalMaterialCatalogItem[];
+  };
 }
 
 function formatCurrency(n: number) {
   return `$${n.toLocaleString('es-CO')}`;
 }
 
+function formatVehicleType(value: OperationalVehicleType) {
+  switch (value) {
+    case 'automotor':
+      return 'Automotor';
+    case 'placa':
+      return 'Placa';
+    case 'traccion_humana':
+      return 'Tracción humana';
+    default:
+      return value;
+  }
+}
+
 export async function exportCSV(data: ExportData, filename: string) {
+  if (data.reportMode === 'operational' && data.operationalData) {
+    const { filters, summary, records, materialsCatalog } = data.operationalData;
+    let csv = `Reporte: ${data.title}\n`;
+    if (data.dateRange) {
+      csv += `Rango: ${data.dateRange}\n`;
+    }
+    csv += '\nFiltros aplicados\n';
+    csv += 'Filtro,Valor\n';
+    Object.entries(filters).forEach(([key, value]) => {
+      csv += `"${key}","${value}"\n`;
+    });
+
+    if (data.fields.summary) {
+      csv += '\nResumen operativo\n';
+      csv += 'Métrica,Valor\n';
+      csv += `"Registros","${summary.totalRecords}"\n`;
+      csv += `"Cantidad total (kg)","${summary.totalKg}"\n`;
+      csv += `"Rechazo total (kg)","${summary.totalRejectedKg}"\n`;
+      csv += `"Aforados","${summary.totalAforados}"\n`;
+      csv += `"Aplica Dcto 596","${summary.totalDcto596}"\n`;
+    }
+
+    if (data.fields.records) {
+      csv += '\nRegistros operativos\n';
+      csv += 'Fecha,NUAP,NUECA,Macroruta,Microruta,Usuarios vinculados,¿Aforado?,Tipo usuario,Código operador,Nombre operador,Identificación operador,Tipo vehículo,Placa,Días frecuencia,Familia material,Material,Código material,Cantidad kg,Kg aprovechado,Rechazo,¿Aplica Dcto 596?\n';
+      records.forEach((row) => {
+        csv += `"${new Date(row.createdAt).toLocaleDateString('es-CO')}","${row.nuap}","${row.nueca}","${row.macroRoute}","${row.microRoute}","${row.linkedUsersCount}","${row.isAforado ? 'Sí' : 'No'}","${row.userType}","${row.operatorCode}","${row.operatorName}","${row.operatorIdentification}","${formatVehicleType(row.vehicleType)}","${row.vehiclePlate ?? ''}","${row.frequencyDays.join(', ')}","${row.materialFamily}","${row.materialName}","${row.materialCode}","${row.quantityKg}","${row.effectiveKg}","${row.rejectedKg}","${row.appliesDcto596 ? 'Sí' : 'No'}"\n`;
+      });
+    }
+
+    if (data.fields.catalog) {
+      csv += '\nCatálogo de materiales\n';
+      csv += 'Familia,Material,Código\n';
+      materialsCatalog.forEach((item) => {
+        csv += `"${item.family}","${item.name}","${item.code}"\n`;
+      });
+    }
+
+    await downloadFile(csv, filename + '.csv', 'text/csv');
+    return;
+  }
+
   let csv = `Reporte: ${data.title}\n\n`;
   if (data.dateRange) {
     csv += `Rango: ${data.dateRange}\n`;
@@ -78,6 +150,174 @@ export async function exportCSV(data: ExportData, filename: string) {
 }
 
 export function generatePDFHtml(data: ExportData): string {
+  if (data.reportMode === 'operational' && data.operationalData) {
+    const { filters, summary, records, materialsCatalog } = data.operationalData;
+    const filtersHtml = Object.entries(filters)
+      .map(
+        ([label, value]) => `
+          <div class="filter-item">
+            <span class="filter-label">${label}</span>
+            <span class="filter-value">${value}</span>
+          </div>
+        `,
+      )
+      .join('');
+
+    const summaryCards = [
+      { label: 'Registros', value: String(summary.totalRecords) },
+      { label: 'Cantidad total', value: `${summary.totalKg.toLocaleString('es-CO')} kg` },
+      { label: 'Rechazo total', value: `${summary.totalRejectedKg.toLocaleString('es-CO')} kg` },
+      { label: 'Aforados', value: String(summary.totalAforados) },
+      { label: 'Dcto 596', value: String(summary.totalDcto596) },
+    ]
+      .map(
+        (item) => `
+          <div class="kpi-card">
+            <div class="kpi-value">${item.value}</div>
+            <div class="kpi-label">${item.label}</div>
+          </div>
+        `,
+      )
+      .join('');
+
+    const recordsRows = records
+      .map(
+        (row) => `
+          <tr>
+            <td>${new Date(row.createdAt).toLocaleDateString('es-CO')}</td>
+            <td>${row.nuap}</td>
+            <td>${row.nueca}</td>
+            <td>${row.macroRoute}</td>
+            <td>${row.microRoute}</td>
+            <td>${row.linkedUsersCount}${row.isAforado ? ' (Aforado)' : ''}</td>
+            <td>${row.userType}</td>
+            <td>${row.operatorCode}</td>
+            <td>${row.operatorName}</td>
+            <td>${row.operatorIdentification}</td>
+            <td>${formatVehicleType(row.vehicleType)}${row.vehiclePlate ? ` · ${row.vehiclePlate}` : ''}</td>
+            <td>${row.frequencyDays.join(', ') || 'N/A'}</td>
+            <td>${row.materialFamily}</td>
+            <td>${row.materialName} (${row.materialCode})</td>
+            <td>${row.quantityKg.toLocaleString('es-CO')}</td>
+            <td>${row.rejectedKg.toLocaleString('es-CO')}</td>
+            <td>${row.appliesDcto596 ? 'Sí' : 'No'}</td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    const materialCatalogRows = materialsCatalog
+      .map(
+        (item) => `
+          <tr>
+            <td>${item.family}</td>
+            <td>${item.name}</td>
+            <td>${item.code}</td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>${data.title}</title>
+        <style>
+          @page { size: landscape; margin: 14px; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #0f172a; margin: 0; padding: 18px; font-size: 11px; }
+          .header { border-bottom: 3px solid #0f766e; padding-bottom: 12px; margin-bottom: 18px; }
+          .header h1 { margin: 0; color: #0f766e; font-size: 24px; text-transform: uppercase; }
+          .header p { margin: 4px 0 0 0; color: #475569; }
+          .filters-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+          .filter-item { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; background: #f8fafc; }
+          .filter-label { display: block; font-weight: bold; color: #334155; font-size: 10px; text-transform: uppercase; margin-bottom: 4px; }
+          .filter-value { color: #0f172a; }
+          .kpi-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 18px; }
+          .kpi-card { border: 1px solid #dbeafe; background: #eff6ff; border-radius: 8px; padding: 12px; text-align: center; }
+          .kpi-value { font-size: 18px; font-weight: bold; color: #1d4ed8; }
+          .kpi-label { margin-top: 4px; color: #475569; font-size: 10px; text-transform: uppercase; }
+          h2 { margin: 16px 0 10px; font-size: 14px; color: #0f172a; text-transform: uppercase; }
+          table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+          th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; word-wrap: break-word; }
+          th { background: #e2e8f0; font-size: 9px; text-transform: uppercase; }
+          td { font-size: 10px; }
+          .catalog-table th, .catalog-table td { font-size: 10px; }
+          .footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #cbd5e1; color: #64748b; text-align: center; font-size: 10px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${data.title}</h1>
+          <p>Rango: ${data.dateRange ?? 'N/A'}</p>
+          <p>Generado automáticamente desde ECA App</p>
+        </div>
+
+        <h2>Filtros aplicados</h2>
+        <div class="filters-grid">${filtersHtml}</div>
+
+        ${data.fields.summary ? `<h2>Resumen operativo</h2><div class="kpi-grid">${summaryCards}</div>` : ''}
+
+        ${
+          data.fields.records
+            ? `
+              <h2>Detalle de registros</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>NUAP</th>
+                    <th>NUECA</th>
+                    <th>Macro</th>
+                    <th>Microruta</th>
+                    <th>Usuarios vinculados</th>
+                    <th>Tipo usuario</th>
+                    <th>Código operador</th>
+                    <th>Nombre operador</th>
+                    <th>Identificación</th>
+                    <th>Vehículo</th>
+                    <th>Días frecuencia</th>
+                    <th>Familia</th>
+                    <th>Material</th>
+                    <th>Cantidad kg</th>
+                    <th>Rechazo kg</th>
+                    <th>Dcto 596</th>
+                  </tr>
+                </thead>
+                <tbody>${recordsRows}</tbody>
+              </table>
+            `
+            : ''
+        }
+
+        ${
+          data.fields.catalog
+            ? `
+              <h2>Catálogo de materiales</h2>
+              <table class="catalog-table">
+                <thead>
+                  <tr>
+                    <th>Familia</th>
+                    <th>Material</th>
+                    <th>Código</th>
+                  </tr>
+                </thead>
+                <tbody>${materialCatalogRows}</tbody>
+              </table>
+            `
+            : ''
+        }
+
+        <div class="footer">
+          Documento generado el ${new Date().toLocaleDateString('es-CO')} a las ${new Date().toLocaleTimeString('es-CO')}.
+        </div>
+      </body>
+      </html>
+    `;
+  }
+
   let writtenSummary = '';
   if (data.kpiData && data.financialData) {
     const marginStatus = data.financialData.margenPct > 15 ? 'saludable' : 'ajustado';

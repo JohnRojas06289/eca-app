@@ -23,9 +23,10 @@ export default function SuccessScreen() {
   const { type } = useLocalSearchParams<{ type: 'account' | 'password' }>();
 
   const isPasswordReset = type === 'password';
+  const isDemoRegisterFlow = USE_DEMO_AUTH;
 
   async function handleGoToDashboard() {
-    if (!USE_DEMO_AUTH) {
+    if (!isDemoRegisterFlow) {
       router.replace('/(auth)');
       return;
     }
@@ -137,7 +138,7 @@ export default function SuccessScreen() {
       {/* ── Footer ────────────────────────────────────────── */}
       <View style={styles.accountFooter}>
         <CustomButton
-          label="Ir al Dashboard"
+          label={isDemoRegisterFlow ? 'Ir al Dashboard' : 'Ir al inicio de sesión'}
           rightIcon={
             <Ionicons
               name="arrow-forward"
@@ -148,12 +149,14 @@ export default function SuccessScreen() {
           onPress={handleGoToDashboard}
           style={styles.dashboardBtn}
         />
-        <TouchableOpacity
-          onPress={handleGoToDashboard}
-          style={styles.guideBtn}
-        >
-          <Text style={styles.guideText}>Explorar sin configurar</Text>
-        </TouchableOpacity>
+        {isDemoRegisterFlow && (
+          <TouchableOpacity
+            onPress={handleGoToDashboard}
+            style={styles.guideBtn}
+          >
+            <Text style={styles.guideText}>Explorar sin configurar</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );

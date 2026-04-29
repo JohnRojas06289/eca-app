@@ -24,7 +24,9 @@ export default function RootHtml({ children }: { children: ReactNode }) {
         <style
           dangerouslySetInnerHTML={{
             __html: `
-              body { background: #F3F4F6; }
+              html, body, #root { width: 100%; min-width: 0; }
+              body { background: #F3F4F6; overflow-x: hidden; }
+              #root > div { width: 100%; min-width: 0; }
               * { box-sizing: border-box; }
               button, [role="button"] { -webkit-tap-highlight-color: transparent; }
             `,
