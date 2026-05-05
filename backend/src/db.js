@@ -235,3 +235,45 @@ export async function createUser({
 
   return getUserById(userId);
 }
+
+export async function getUsers() {
+  return query(
+    `SELECT id, name, email, phone, cedula, role, association, status, created_at, updated_at
+     FROM users ORDER BY created_at DESC`,
+  );
+}
+
+export async function updateUser(id, updates) {
+  const allowedFields = ['name', 'email', 'phone', 'cedula', 'role', 'association', 'status'];
+  const setClauses = [];
+  const args = [];
+
+  for (const field of allowedFields) {
+    if (updates[field] !== undefined) {
+      setClauses.push(`${field} = ?`);
+      args.push(updates[field]);
+    }
+  }
+
+  if (updates.passwordHash) {
+    setClauses.push(`password_hash = ?`);
+    args.push(updates.passwordHash);
+  }
+
+  if (setClauses.length === 0) return getUserById(id);
+
+  setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
+  args.push(id);
+
+  await query(
+    `UPDATE users SET ${setClauses.join(', ')} WHERE id = ?`,
+    args,
+  );
+
+  return getUserById(id);
+}
+
+export async function deleteUser(id) {
+  await query(`DELETE FROM users WHERE id = ?`, [id]);
+}
+

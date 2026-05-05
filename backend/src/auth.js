@@ -78,3 +78,23 @@ export function createAccessToken(user) {
 
   return `${payload}.${signature}`;
 }
+
+export function verifyAccessToken(token) {
+  if (!token) return null;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature) return null;
+
+  const expectedSignature = crypto
+    .createHmac('sha256', getTokenSecret())
+    .update(payload)
+    .digest('base64url');
+
+  if (signature !== expectedSignature) return null;
+
+  try {
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+

@@ -8,10 +8,14 @@ import {
   getConversationMessages,
   getDatabaseConfigStatus,
   getUserByEmail,
+  getUserById,
+  getUsers,
+  updateUser,
+  deleteUser,
   saveMessage,
   upsertConversation,
 } from './db.js';
-import { createAccessToken, hashPassword, verifyPassword } from './auth.js';
+import { createAccessToken, hashPassword, verifyPassword, verifyAccessToken } from './auth.js';
 
 const app = express();
 
@@ -273,6 +277,88 @@ app.post('/api/chat', async (req, res) => {
     return res.status(getErrorStatus(error)).json({
       error: { message: getErrorMessage(error) },
     });
+  }
+});
+
+const adminMiddleware = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: { message: 'Token no proporcionado o inválido.' } });
+  }
+
+  const token = authHeader.slice(7);
+  const userPayload = verifyAccessToken(token);
+
+  if (!userPayload || !['admin', 'supervisor'].includes(userPayload.role)) {
+    return res.status(403).json({ error: { message: 'Acceso denegado. Se requiere rol de administrador o supervisor.' } });
+  }
+
+  req.user = userPayload;
+  next();
+};
+
+app.get('/api/users', adminMiddleware, async (req, res) => {
+  try {
+    const users = await getUsers();
+    return res.json({ users: users.map(sanitizeUser) });
+  } catch (error) {
+    console.error(error);
+    return res.status(getErrorStatus(error)).json({ error: { message: getErrorMessage(error) } });
+  }
+});
+
+app.get('/api/users/:id', adminMiddleware, async (req, res) => {
+  try {
+    const user = await getUserById(req.params.id);
+    if (!user) return res.status(404).json({ error: { message: 'Usuario no encontrado.' } });
+    return res.json({ user: sanitizeUser(user) });
+  } catch (error) {
+    console.error(error);
+    return res.status(getErrorStatus(error)).json({ error: { message: getErrorMessage(error) } });
+  }
+});
+
+app.put('/api/users/:id', adminMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const existingUser = await getUserById(id);
+    if (!existingUser) return res.status(404).json({ error: { message: 'Usuario no encontrado.' } });
+
+    const updates = {};
+    if (req.body.name) updates.name = String(req.body.name).trim();
+    if (req.body.email) updates.email = String(req.body.email).trim().toLowerCase();
+    if (req.body.phone !== undefined) updates.phone = req.body.phone ? String(req.body.phone).trim() : null;
+    if (req.body.cedula !== undefined) updates.cedula = req.body.cedula ? String(req.body.cedula).trim() : null;
+    if (req.body.role) updates.role = normalizeRole(req.body.role);
+    if (req.body.association !== undefined) updates.association = req.body.association ? String(req.body.association).trim() : null;
+    if (req.body.status) updates.status = String(req.body.status).trim();
+
+    if (req.body.password) {
+      if (String(req.body.password).length < 8) {
+        return res.status(400).json({ error: { message: 'La contraseña debe tener al menos 8 caracteres.' } });
+      }
+      updates.passwordHash = await hashPassword(req.body.password);
+    }
+
+    const updatedUser = await updateUser(id, updates);
+    return res.json({ message: 'Usuario actualizado', user: sanitizeUser(updatedUser) });
+  } catch (error) {
+    console.error(error);
+    return res.status(getErrorStatus(error)).json({ error: { message: getErrorMessage(error) } });
+  }
+});
+
+app.delete('/api/users/:id', adminMiddleware, async (req, res) => {
+  try {
+    const id = req.params.id;
+    const existingUser = await getUserById(id);
+    if (!existingUser) return res.status(404).json({ error: { message: 'Usuario no encontrado.' } });
+
+    await deleteUser(id);
+    return res.json({ message: 'Usuario eliminado correctamente' });
+  } catch (error) {
+    console.error(error);
+    return res.status(getErrorStatus(error)).json({ error: { message: getErrorMessage(error) } });
   }
 });
 
