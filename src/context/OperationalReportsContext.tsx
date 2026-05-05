@@ -10,9 +10,11 @@ import {
 } from 'react';
 import {
   DEFAULT_OPERATIONAL_REPORT_SETTINGS,
+  OPERATIONAL_MICRO_ROUTES,
   OPERATIONAL_REPORT_SAMPLE_ROWS,
   createOperationalReportRecord,
   toOperationalReportRecordInput,
+  type OperationalMicroRouteConfig,
   type OperationalReportRecord,
   type OperationalReportRecordInput,
   type OperationalReportSettings,
@@ -31,6 +33,8 @@ interface OperationalReportsContextValue {
   setRecordInputs: Dispatch<SetStateAction<OperationalReportRecordInput[]>>;
   records: OperationalReportRecord[];
   addRecord: (input: AddOperationalRecordInput) => OperationalReportRecordInput;
+  routeConfigs: OperationalMicroRouteConfig[];
+  setRouteConfigs: Dispatch<SetStateAction<OperationalMicroRouteConfig[]>>;
 }
 
 const OperationalReportsContext = createContext<OperationalReportsContextValue | null>(null);
@@ -41,6 +45,9 @@ export function OperationalReportsProvider({ children }: { children: ReactNode }
   });
   const [recordInputs, setRecordInputs] = useState<OperationalReportRecordInput[]>(() =>
     OPERATIONAL_REPORT_SAMPLE_ROWS.map(toOperationalReportRecordInput),
+  );
+  const [routeConfigs, setRouteConfigs] = useState<OperationalMicroRouteConfig[]>(
+    OPERATIONAL_MICRO_ROUTES,
   );
 
   const records = useMemo(
@@ -67,6 +74,8 @@ export function OperationalReportsProvider({ children }: { children: ReactNode }
         setRecordInputs,
         records,
         addRecord,
+        routeConfigs,
+        setRouteConfigs,
       }}
     >
       {children}

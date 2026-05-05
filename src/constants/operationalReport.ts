@@ -1,5 +1,5 @@
 export type OperationalUserType = 'residencial' | 'comercial' | 'oficial';
-export type OperationalVehicleType = 'automotor' | 'placa' | 'traccion_humana';
+export type OperationalVehicleType = 'automotor' | 'traccion_humana' | 'vehiculo_asistido';
 export type OperationalWeekday =
   | 'Lunes'
   | 'Martes'
@@ -15,7 +15,8 @@ export type OperationalMaterialFamily =
   | 'Plásticos'
   | 'Vidrio'
   | 'Textil'
-  | 'Madera';
+  | 'Madera'
+  | 'Especiales';
 
 export interface OperationalReportSettings {
   reportName: string;
@@ -103,8 +104,8 @@ export const OPERATIONAL_VEHICLE_TYPES: Array<{
   value: OperationalVehicleType;
 }> = [
   { label: 'Automotor', value: 'automotor' },
-  { label: 'Placa', value: 'placa' },
   { label: 'Tracción humana', value: 'traccion_humana' },
+  { label: 'Vehículo asistido', value: 'vehiculo_asistido' },
 ];
 
 export const OPERATIONAL_MICRO_ROUTES: OperationalMicroRouteConfig[] = [
@@ -172,6 +173,9 @@ export const OPERATIONAL_MATERIAL_CATALOG: OperationalMaterialCatalogItem[] = [
   { family: 'Vidrio', name: 'Otros vidrios', code: '499' },
   { family: 'Textil', name: 'Otros textiles', code: '599' },
   { family: 'Madera', name: 'Otros maderables', code: '699' },
+
+  { family: 'Especiales', name: 'Residuos de aparatos eléctricos', code: '701' },
+  { family: 'Especiales', name: 'Otros especiales', code: '799' },
 ];
 
 export function getOperationalMaterialByCode(code: string) {
@@ -287,7 +291,7 @@ export const OPERATIONAL_REPORT_SAMPLE_ROWS: OperationalReportRecord[] = [
     userType: 'comercial',
     operatorName: 'Rosa Cárdenas',
     operatorIdentification: '987654321',
-    vehicleType: 'placa',
+    vehicleType: 'vehiculo_asistido',
     vehiclePlate: 'WXT-908',
     materialCode: '202',
     quantityKg: 41,
@@ -334,7 +338,7 @@ export const OPERATIONAL_REPORT_SAMPLE_ROWS: OperationalReportRecord[] = [
     userType: 'comercial',
     operatorName: 'Sofía Vargas',
     operatorIdentification: '654987321',
-    vehicleType: 'placa',
+    vehicleType: 'vehiculo_asistido',
     vehiclePlate: 'JKL-220',
     materialCode: '307',
     quantityKg: 65,

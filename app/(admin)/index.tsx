@@ -60,9 +60,9 @@ const SEVERITY_CONFIG = {
 };
 
 const QUICK_ACTIONS = [
+  { label: 'Registrar entrada', icon: 'add-circle-outline', route: '/(admin)/new-weighing' },
   { label: 'Reportes', icon: 'bar-chart-outline', route: '/(admin)/reports' },
   { label: 'Rutas', icon: 'map-outline', route: '/(admin)/routes' },
-  { label: 'Registrar', icon: 'scale-outline', route: '/(admin)/new-weighing' },
   { label: 'Validar', icon: 'checkmark-circle-outline', route: '/(admin)/validate' },
   { label: 'Usuarios', icon: 'people-outline', route: '/(admin)/users' },
 ];
@@ -71,8 +71,8 @@ const DRAWER_ACTIONS = [
   { label: 'Reportes', icon: 'bar-chart-outline', route: '/(admin)/reports' },
   { label: 'Rutas', icon: 'map-outline', route: '/(admin)/routes' },
   { label: 'Usuarios', icon: 'people-outline', route: '/(admin)/users' },
-  { label: 'Registrar pesaje', icon: 'scale-outline', route: '/(admin)/new-weighing' },
-  { label: 'Validar pesajes', icon: 'checkmark-circle-outline', route: '/(admin)/validate' },
+  { label: 'Registrar entrada', icon: 'add-circle-outline', route: '/(admin)/new-weighing' },
+  { label: 'Validar entradas', icon: 'checkmark-circle-outline', route: '/(admin)/validate' },
   { label: 'Alertas', icon: 'notifications-outline', route: '/(admin)/alerts' },
   { label: 'Precios', icon: 'pricetag-outline', route: '/(admin)/prices' },
   { label: 'Ajustes', icon: 'settings-outline', route: '/(admin)/settings' },

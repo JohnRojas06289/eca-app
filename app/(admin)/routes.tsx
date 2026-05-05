@@ -17,6 +17,10 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { formatLongDate } from '@/src/utils/date';
+import { useOperationalReports } from '@/src/context/OperationalReportsContext';
+import type { OperationalWeekday } from '@/src/constants/operationalReport';
+
+const ALL_WEEKDAYS: OperationalWeekday[] = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 type RouteStatus = 'active' | 'paused' | 'completed' | 'pending';
 
@@ -73,12 +77,78 @@ const EMPTY_FORM: RouteForm = {
 
 export default function AdminRoutesScreen() {
   const router = useRouter();
+  const { routeConfigs, setRouteConfigs } = useOperationalReports();
+  const [activeTab, setActiveTab] = useState<'general' | 'operational'>('general');
   const [search, setSearch] = useState('');
   const [routes, setRoutes] = useState<RouteItem[]>(INITIAL_ROUTES);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<RouteForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  // Operational micro routes state
+  const [opModalVisible, setOpModalVisible] = useState(false);
+  const [opEditingKey, setOpEditingKey] = useState<string | null>(null);
+  const [opForm, setOpForm] = useState({ macroRoute: '', microRoute: '', frequencyDays: [] as OperationalWeekday[] });
+
+  function openOpCreate() {
+    setOpEditingKey(null);
+    setOpForm({ macroRoute: '', microRoute: '', frequencyDays: [] });
+    setOpModalVisible(true);
+  }
+
+  function openOpEdit(route: typeof routeConfigs[0]) {
+    setOpEditingKey(route.microRoute);
+    setOpForm({ macroRoute: route.macroRoute, microRoute: route.microRoute, frequencyDays: [...route.frequencyDays] });
+    setOpModalVisible(true);
+  }
+
+  function toggleOpDay(day: OperationalWeekday) {
+    setOpForm((prev) => ({
+      ...prev,
+      frequencyDays: prev.frequencyDays.includes(day)
+        ? prev.frequencyDays.filter((d) => d !== day)
+        : [...prev.frequencyDays, day],
+    }));
+  }
+
+  function handleOpSave() {
+    const macroRoute = opForm.macroRoute.trim();
+    const microRoute = opForm.microRoute.trim();
+    if (!macroRoute || !microRoute) {
+      Alert.alert('Campos requeridos', 'Ingresa macroruta y microruta.');
+      return;
+    }
+    if (
+      !opEditingKey &&
+      routeConfigs.some((r) => r.microRoute === microRoute)
+    ) {
+      Alert.alert('Duplicada', `La microruta "${microRoute}" ya existe.`);
+      return;
+    }
+    if (opEditingKey) {
+      setRouteConfigs((prev) =>
+        prev.map((r) =>
+          r.microRoute === opEditingKey
+            ? { macroRoute, microRoute, frequencyDays: opForm.frequencyDays, onlyAssociatedToEca: true }
+            : r,
+        ),
+      );
+    } else {
+      setRouteConfigs((prev) => [
+        ...prev,
+        { macroRoute, microRoute, frequencyDays: opForm.frequencyDays, onlyAssociatedToEca: true },
+      ]);
+    }
+    setOpModalVisible(false);
+  }
+
+  function confirmOpDelete(microRoute: string) {
+    Alert.alert('Eliminar microruta', `¿Eliminar la microruta "${microRoute}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => setRouteConfigs((prev) => prev.filter((r) => r.microRoute !== microRoute)) },
+    ]);
+  }
 
   const filtered = routes.filter(
     (r) =>
@@ -202,119 +272,195 @@ export default function AdminRoutesScreen() {
           <Text style={styles.headerTitle}>Rutas</Text>
           <Text style={styles.headerSubtitle}>{formatLongDate()} · {shift}</Text>
         </View>
-        <TouchableOpacity onPress={openCreate} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity
+          onPress={activeTab === 'general' ? openCreate : openOpCreate}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
           <Ionicons name="add-circle-outline" size={24} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
-          <Text style={[styles.summaryValue, { color: theme.colors.success }]}>{metrics.activeCount}</Text>
-          <Text style={styles.summaryLabel}>En curso</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={[styles.summaryValue, { color: theme.colors.warning }]}>{metrics.pausedCount}</Text>
-          <Text style={styles.summaryLabel}>Pausadas</Text>
-        </View>
-        <View style={styles.summaryCard}>
-          <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>{metrics.completedCount}</Text>
-          <Text style={styles.summaryLabel}>Completadas</Text>
-        </View>
+      <View style={styles.tabRow}>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'general' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('general')}
+        >
+          <Text style={[styles.tabBtnText, activeTab === 'general' && styles.tabBtnTextActive]}>
+            Rutas generales
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'operational' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('operational')}
+        >
+          <Text style={[styles.tabBtnText, activeTab === 'operational' && styles.tabBtnTextActive]}>
+            Microrutas operativas
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.coverageCard}>
-        <View style={styles.coverageHeader}>
-          <Text style={styles.coverageTitle}>Cobertura del día</Text>
-          <Text style={styles.coveragePercent}>{metrics.coveragePct}%</Text>
-        </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${metrics.coveragePct}%` }]} />
-        </View>
-        <Text style={styles.coverageMeta}>{metrics.totalStopsCompleted} de {metrics.totalStops} paradas completadas</Text>
-      </View>
+      {activeTab === 'general' && (
+        <>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryCard}>
+              <Text style={[styles.summaryValue, { color: theme.colors.success }]}>{metrics.activeCount}</Text>
+              <Text style={styles.summaryLabel}>En curso</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={[styles.summaryValue, { color: theme.colors.warning }]}>{metrics.pausedCount}</Text>
+              <Text style={styles.summaryLabel}>Pausadas</Text>
+            </View>
+            <View style={styles.summaryCard}>
+              <Text style={[styles.summaryValue, { color: theme.colors.textPrimary }]}>{metrics.completedCount}</Text>
+              <Text style={styles.summaryLabel}>Completadas</Text>
+            </View>
+          </View>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search-outline" size={18} color={theme.colors.textMuted} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar ruta, zona o reciclador..."
-          placeholderTextColor={theme.colors.textMuted}
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search !== '' && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color={theme.colors.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
+          <View style={styles.coverageCard}>
+            <View style={styles.coverageHeader}>
+              <Text style={styles.coverageTitle}>Cobertura del día</Text>
+              <Text style={styles.coveragePercent}>{metrics.coveragePct}%</Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${metrics.coveragePct}%` }]} />
+            </View>
+            <Text style={styles.coverageMeta}>{metrics.totalStopsCompleted} de {metrics.totalStops} paradas completadas</Text>
+          </View>
+
+          <View style={styles.searchContainer}>
+            <Ionicons name="search-outline" size={18} color={theme.colors.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar ruta, zona o reciclador..."
+              placeholderTextColor={theme.colors.textMuted}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search !== '' && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={18} color={theme.colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </>
+      )}
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {filtered.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="map-outline" size={32} color={theme.colors.textMuted} />
-            <Text style={styles.emptyTitle}>Sin rutas</Text>
-            <Text style={styles.emptySubtitle}>Crea una ruta o ajusta la búsqueda.</Text>
-          </View>
+        {activeTab === 'general' ? (
+          filtered.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="map-outline" size={32} color={theme.colors.textMuted} />
+              <Text style={styles.emptyTitle}>Sin rutas</Text>
+              <Text style={styles.emptySubtitle}>Crea una ruta o ajusta la búsqueda.</Text>
+            </View>
+          ) : (
+            filtered.map((route) => {
+              const cfg = STATUS_CONFIG[route.status];
+              const progress = route.stops > 0 ? Math.round((route.stopsCompleted / route.stops) * 100) : 0;
+
+              return (
+                <View key={route.id} style={styles.routeCard}>
+                  <View style={styles.routeCardHeader}>
+                    <View style={styles.routeHeaderInfo}>
+                      <Text style={styles.routeName}>{route.name}</Text>
+                      <Text style={styles.routeZone}>{route.zone}</Text>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: cfg.bgColor }]}>
+                      <View style={[styles.statusDot, { backgroundColor: cfg.dot }]} />
+                      <Text style={[styles.statusLabel, { color: cfg.color }]}>{cfg.label}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.metaRow}>
+                    <Ionicons name="person-outline" size={14} color={theme.colors.textMuted} />
+                    <Text style={styles.metaText}>{route.recyclerName}</Text>
+                  </View>
+                  <View style={styles.metaRow}>
+                    <Ionicons name="time-outline" size={14} color={theme.colors.textMuted} />
+                    <Text style={styles.metaText}>{route.startTime} → {route.estimatedEnd}</Text>
+                  </View>
+
+                  <View style={styles.progressLabelRow}>
+                    <Text style={styles.progressLabel}>Paradas {route.stopsCompleted}/{route.stops}</Text>
+                    <Text style={styles.progressPercent}>{progress}%</Text>
+                  </View>
+                  <View style={styles.routeProgressTrack}>
+                    <View
+                      style={[
+                        styles.routeProgressFill,
+                        { width: `${progress}%` },
+                        route.status === 'paused' && { backgroundColor: theme.colors.warning },
+                        route.status === 'completed' && { backgroundColor: theme.colors.textMuted },
+                      ]}
+                    />
+                  </View>
+
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(route)}>
+                      <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
+                      <Text style={[styles.actionText, { color: theme.colors.primary }]}>Editar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => confirmDelete(route)}>
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                      <Text style={[styles.actionText, { color: theme.colors.error }]}>Eliminar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          )
         ) : (
-          filtered.map((route) => {
-            const cfg = STATUS_CONFIG[route.status];
-            const progress = route.stops > 0 ? Math.round((route.stopsCompleted / route.stops) * 100) : 0;
-
-            return (
-              <View key={route.id} style={styles.routeCard}>
-                <View style={styles.routeCardHeader}>
-                  <View style={styles.routeHeaderInfo}>
-                    <Text style={styles.routeName}>{route.name}</Text>
-                    <Text style={styles.routeZone}>{route.zone}</Text>
+          routeConfigs.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="navigate-outline" size={32} color={theme.colors.textMuted} />
+              <Text style={styles.emptyTitle}>Sin microrutas</Text>
+              <Text style={styles.emptySubtitle}>Agrega microrutas operativas con el botón +</Text>
+            </View>
+          ) : (
+            routeConfigs.map((rc) => (
+              <View key={rc.microRoute} style={styles.opCard}>
+                <View style={styles.opCardHeader}>
+                  <View style={styles.opCardInfo}>
+                    <Text style={styles.opMacroLabel}>Macroruta</Text>
+                    <Text style={styles.opMacroValue}>{rc.macroRoute}</Text>
+                    <Text style={styles.opMicroLabel}>Microruta</Text>
+                    <Text style={styles.opMicroValue}>{rc.microRoute}</Text>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: cfg.bgColor }]}>
-                    <View style={[styles.statusDot, { backgroundColor: cfg.dot }]} />
-                    <Text style={[styles.statusLabel, { color: cfg.color }]}>{cfg.label}</Text>
+                  <View style={styles.actionsRow}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => openOpEdit(rc)}>
+                      <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
+                      <Text style={[styles.actionText, { color: theme.colors.primary }]}>Editar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => confirmOpDelete(rc.microRoute)}>
+                      <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+                      <Text style={[styles.actionText, { color: theme.colors.error }]}>Eliminar</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-
-                <View style={styles.metaRow}>
-                  <Ionicons name="person-outline" size={14} color={theme.colors.textMuted} />
-                  <Text style={styles.metaText}>{route.recyclerName}</Text>
-                </View>
-                <View style={styles.metaRow}>
-                  <Ionicons name="time-outline" size={14} color={theme.colors.textMuted} />
-                  <Text style={styles.metaText}>{route.startTime} → {route.estimatedEnd}</Text>
-                </View>
-
-                <View style={styles.progressLabelRow}>
-                  <Text style={styles.progressLabel}>Paradas {route.stopsCompleted}/{route.stops}</Text>
-                  <Text style={styles.progressPercent}>{progress}%</Text>
-                </View>
-                <View style={styles.routeProgressTrack}>
-                  <View
-                    style={[
-                      styles.routeProgressFill,
-                      { width: `${progress}%` },
-                      route.status === 'paused' && { backgroundColor: theme.colors.warning },
-                      route.status === 'completed' && { backgroundColor: theme.colors.textMuted },
-                    ]}
-                  />
-                </View>
-
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(route)}>
-                    <Ionicons name="create-outline" size={16} color={theme.colors.primary} />
-                    <Text style={[styles.actionText, { color: theme.colors.primary }]}>Editar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => confirmDelete(route)}>
-                    <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
-                    <Text style={[styles.actionText, { color: theme.colors.error }]}>Eliminar</Text>
-                  </TouchableOpacity>
+                <Text style={styles.opFreqLabel}>Frecuencia</Text>
+                <View style={styles.opDaysRow}>
+                  {ALL_WEEKDAYS.map((day) => (
+                    <View
+                      key={day}
+                      style={[styles.opDayChip, rc.frequencyDays.includes(day) && styles.opDayChipActive]}
+                    >
+                      <Text style={[styles.opDayText, rc.frequencyDays.includes(day) && styles.opDayTextActive]}>
+                        {day.slice(0, 2)}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               </View>
-            );
-          })
+            ))
+          )
         )}
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={openCreate} activeOpacity={0.85}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={activeTab === 'general' ? openCreate : openOpCreate}
+        activeOpacity={0.85}
+      >
         <Ionicons name="add" size={26} color={theme.colors.textOnPrimary} />
       </TouchableOpacity>
 
@@ -435,6 +581,74 @@ export default function AdminRoutesScreen() {
               >
                 <Text style={styles.saveBtnText}>
                   {saving ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear ruta'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Operational micro route modal */}
+      <Modal
+        visible={opModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setOpModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{opEditingKey ? 'Editar microruta' : 'Nueva microruta'}</Text>
+              <TouchableOpacity onPress={() => setOpModalVisible(false)}>
+                <Ionicons name="close" size={24} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.fieldLabel}>Macroruta *</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={opForm.macroRoute}
+                onChangeText={(v) => setOpForm((f) => ({ ...f, macroRoute: v }))}
+                placeholder="Ej: Zona Norte"
+                placeholderTextColor={theme.colors.textMuted}
+              />
+
+              <Text style={styles.fieldLabel}>Microruta *</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={opForm.microRoute}
+                onChangeText={(v) => setOpForm((f) => ({ ...f, microRoute: v }))}
+                placeholder="Ej: MR-01"
+                placeholderTextColor={theme.colors.textMuted}
+                editable={!opEditingKey}
+              />
+
+              <Text style={styles.fieldLabel}>Frecuencia (días de recolección)</Text>
+              <View style={styles.opDaysRow}>
+                {ALL_WEEKDAYS.map((day) => (
+                  <TouchableOpacity
+                    key={day}
+                    style={[styles.opDayChip, opForm.frequencyDays.includes(day) && styles.opDayChipActive]}
+                    onPress={() => toggleOpDay(day)}
+                  >
+                    <Text style={[styles.opDayText, opForm.frequencyDays.includes(day) && styles.opDayTextActive]}>
+                      {day.slice(0, 2)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleOpSave}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.saveBtnText}>
+                  {opEditingKey ? 'Guardar cambios' : 'Crear microruta'}
                 </Text>
               </TouchableOpacity>
             </ScrollView>
@@ -766,6 +980,114 @@ const styles = StyleSheet.create({
   saveBtnText: {
     fontSize: theme.typography.sizes.body,
     fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textOnPrimary,
+  },
+
+  // Tab row
+  tabRow: {
+    flexDirection: 'row',
+    marginHorizontal: theme.spacing.screen,
+    marginBottom: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.separator,
+    padding: 3,
+  },
+  tabBtn: {
+    flex: 1,
+    height: 34,
+    borderRadius: theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBtnActive: {
+    backgroundColor: theme.colors.background,
+    ...theme.shadows.sm,
+  },
+  tabBtnText: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.textMuted,
+  },
+  tabBtnTextActive: {
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.weights.semibold,
+  },
+
+  // Operational route cards
+  opCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  opCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: theme.spacing.sm,
+  },
+  opCardInfo: { flex: 1 },
+  opMacroLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    fontWeight: theme.typography.weights.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  opMacroValue: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textPrimary,
+    marginBottom: theme.spacing.xs,
+  },
+  opMicroLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    fontWeight: theme.typography.weights.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  opMicroValue: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textSecondary,
+  },
+  opFreqLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    fontWeight: theme.typography.weights.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: theme.spacing.xs,
+  },
+  opDaysRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.xs,
+    marginTop: theme.spacing.xs,
+  },
+  opDayChip: {
+    width: 36,
+    height: 36,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  opDayChipActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  opDayText: {
+    fontSize: theme.typography.sizes.tiny,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textMuted,
+  },
+  opDayTextActive: {
     color: theme.colors.textOnPrimary,
   },
 });

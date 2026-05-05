@@ -222,6 +222,7 @@ export default function AdminReportsScreen() {
     recordInputs: operationalRecordInputs,
     setRecordInputs: setOperationalRecordInputs,
     records: operationalRows,
+    routeConfigs,
   } = useOperationalReports();
   const today = new Date();
   const [period, setPeriod] = useState<Period>('month');
@@ -292,8 +293,8 @@ export default function AdminReportsScreen() {
   ];
   const operationalStartDate = parseDateLabel(dateFrom);
   const operationalEndDate = parseDateLabel(dateTo);
-  const macroRouteOptions = Array.from(new Set(OPERATIONAL_MICRO_ROUTES.map((item) => item.macroRoute)));
-  const microRouteOptions = OPERATIONAL_MICRO_ROUTES
+  const macroRouteOptions = Array.from(new Set(routeConfigs.map((item) => item.macroRoute)));
+  const microRouteOptions = routeConfigs
     .filter((item) => macroRouteFilter === 'all' || item.macroRoute === macroRouteFilter)
     .map((item) => item.microRoute);
   const materialFamilyOptions = Array.from(
@@ -351,7 +352,7 @@ export default function AdminReportsScreen() {
     userTypeFilter,
   ]);
 
-  const operationalFormMicroRouteOptions = OPERATIONAL_MICRO_ROUTES.filter(
+  const operationalFormMicroRouteOptions = routeConfigs.filter(
     (item) => item.macroRoute === operationalForm.macroRoute,
   );
   const operationalFormMaterialOptions = OPERATIONAL_MATERIAL_CATALOG.filter(
@@ -382,7 +383,7 @@ export default function AdminReportsScreen() {
       totalKg: filteredOperationalRows.reduce((sum, row) => sum + row.quantityKg, 0),
       totalRejectedKg: filteredOperationalRows.reduce((sum, row) => sum + row.rejectedKg, 0),
       totalAforados: filteredOperationalRows.filter((row) => row.isAforado).length,
-      totalDcto596: filteredOperationalRows.filter((row) => row.appliesDcto596).length,
+      totalTarifa596: filteredOperationalRows.filter((row) => row.appliesDcto596).length,
     }),
     [filteredOperationalRows],
   );
@@ -537,11 +538,6 @@ export default function AdminReportsScreen() {
       return;
     }
 
-    if (operationalForm.vehicleType === 'placa' && operationalForm.vehiclePlate.trim() === '') {
-      Alert.alert('Placa requerida', 'Ingresa el número de placa para este registro.');
-      return;
-    }
-
     const newRecord: OperationalReportRecordInput = {
       id: `op-${Date.now()}`,
       createdAt: new Date().toISOString(),
@@ -552,10 +548,7 @@ export default function AdminReportsScreen() {
       operatorName,
       operatorIdentification: operatorIdentificationDigits,
       vehicleType: operationalForm.vehicleType,
-      vehiclePlate:
-        operationalForm.vehicleType === 'placa'
-          ? operationalForm.vehiclePlate.trim().toUpperCase()
-          : undefined,
+      vehiclePlate: operationalForm.vehiclePlate.trim().toUpperCase() || undefined,
       materialCode: operationalForm.materialCode,
       quantityKg,
       effectiveKg,
@@ -594,7 +587,7 @@ export default function AdminReportsScreen() {
             'Umbral aforado':
               `${operationalSettings.aforadoThresholdKg.toLocaleString('es-CO')} kg`,
           },
-          summary: operationalSummary,
+          summary: { ...operationalSummary, totalDcto596: operationalSummary.totalTarifa596 },
           records: filteredOperationalRows,
           materialsCatalog: OPERATIONAL_MATERIAL_CATALOG,
         },
@@ -839,8 +832,8 @@ export default function AdminReportsScreen() {
                 onPress={() => router.push('/(admin)/new-weighing' as any)}
                 activeOpacity={0.85}
               >
-                <Ionicons name="scale-outline" size={18} color={theme.colors.textOnPrimary} />
-                <Text style={styles.operationalPrimaryActionText}>Registrar pesaje</Text>
+                <Ionicons name="add-circle-outline" size={18} color={theme.colors.textOnPrimary} />
+                <Text style={styles.operationalPrimaryActionText}>Registrar entrada</Text>
               </TouchableOpacity>
             </View>
 
@@ -1059,10 +1052,8 @@ export default function AdminReportsScreen() {
                       </Text>
                     </View>
                     <View style={styles.operationalFieldItem}>
-                      <Text style={styles.operationalFieldLabel}>Material</Text>
-                      <Text style={styles.operationalFieldValue}>
-                        {row.materialName} · {row.materialCode}
-                      </Text>
+                      <Text style={styles.operationalFieldLabel}>Código material</Text>
+                      <Text style={styles.operationalFieldValue}>{row.materialCode}</Text>
                     </View>
                     <View style={styles.operationalFieldItem}>
                       <Text style={styles.operationalFieldLabel}>Cantidad kg</Text>
@@ -1077,7 +1068,7 @@ export default function AdminReportsScreen() {
                       </Text>
                     </View>
                     <View style={styles.operationalFieldItem}>
-                      <Text style={styles.operationalFieldLabel}>Dcto 596</Text>
+                      <Text style={styles.operationalFieldLabel}>Tarifa 596</Text>
                       <Text style={styles.operationalFieldValue}>
                         {row.appliesDcto596 ? 'Sí' : 'No'}
                       </Text>
@@ -1457,7 +1448,7 @@ export default function AdminReportsScreen() {
                   ))}
                 </ScrollView>
 
-                <Text style={styles.operationalFormLabel}>Asociado a la ECA</Text>
+                <Text style={styles.operationalFormLabel}>Aforado a la ECA</Text>
                 <View style={styles.operationalChipRow}>
                   {[
                     { value: true, label: 'Sí' },
@@ -1536,12 +1527,7 @@ export default function AdminReportsScreen() {
                     <TouchableOpacity
                       key={option.value}
                       style={[styles.operationalChip, operationalForm.vehicleType === option.value && styles.operationalChipActive]}
-                      onPress={() => {
-                        updateOperationalForm('vehicleType', option.value);
-                        if (option.value !== 'placa') {
-                          updateOperationalForm('vehiclePlate', '');
-                        }
-                      }}
+                      onPress={() => updateOperationalForm('vehicleType', option.value)}
                     >
                       <Text style={[styles.operationalChipText, operationalForm.vehicleType === option.value && styles.operationalChipTextActive]}>
                         {option.label}
@@ -1550,19 +1536,15 @@ export default function AdminReportsScreen() {
                   ))}
                 </ScrollView>
 
-                {operationalForm.vehicleType === 'placa' && (
-                  <>
-                    <Text style={styles.operationalFormLabel}>Número de placa</Text>
-                    <TextInput
-                      value={operationalForm.vehiclePlate}
-                      onChangeText={(value) => updateOperationalForm('vehiclePlate', value.toUpperCase())}
-                      placeholder="ABC-123"
-                      placeholderTextColor={theme.colors.textMuted}
-                      autoCapitalize="characters"
-                      style={styles.operationalFormInput}
-                    />
-                  </>
-                )}
+                <Text style={styles.operationalFormLabel}>Placa</Text>
+                <TextInput
+                  value={operationalForm.vehiclePlate}
+                  onChangeText={(value) => updateOperationalForm('vehiclePlate', value.toUpperCase())}
+                  placeholder="ABC-123 (opcional)"
+                  placeholderTextColor={theme.colors.textMuted}
+                  autoCapitalize="characters"
+                  style={styles.operationalFormInput}
+                />
 
                 <Text style={styles.operationalFormLabel}>Familia de material</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
@@ -1579,7 +1561,7 @@ export default function AdminReportsScreen() {
                   ))}
                 </ScrollView>
 
-                <Text style={styles.operationalFormLabel}>Material / código</Text>
+                <Text style={styles.operationalFormLabel}>Código de material</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
                   {operationalFormMaterialOptions.map((option) => (
                     <TouchableOpacity
@@ -1588,7 +1570,7 @@ export default function AdminReportsScreen() {
                       onPress={() => updateOperationalForm('materialCode', option.code)}
                     >
                       <Text style={[styles.operationalChipText, operationalForm.materialCode === option.code && styles.operationalChipTextActive]}>
-                        {option.code} · {option.name}
+                        {option.code}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -1610,7 +1592,7 @@ export default function AdminReportsScreen() {
                     />
                   </View>
                   <View style={styles.operationalFormGridItem}>
-                    <Text style={styles.operationalFormLabel}>Kg aprovechados</Text>
+                    <Text style={styles.operationalFormLabel}>Kg rechazados</Text>
                     <TextInput
                       value={operationalForm.effectiveKg}
                       onChangeText={(value) => updateOperationalForm('effectiveKg', value)}
@@ -1622,7 +1604,7 @@ export default function AdminReportsScreen() {
                   </View>
                 </View>
 
-                <Text style={styles.operationalFormLabel}>¿Aplica Dcto 596?</Text>
+                <Text style={styles.operationalFormLabel}>¿Aplica Tarifa 596?</Text>
                 <View style={styles.operationalChipRow}>
                   {[
                     { value: true, label: 'Sí' },
