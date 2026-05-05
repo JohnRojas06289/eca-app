@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "check:db": "node src/check-db.js",
+    "seed:user": "node src/seed-user.js",
+    "seed:admin": "node src/seed-user.js --role=admin"
   },
   "engines": {
     "node": ">=20"

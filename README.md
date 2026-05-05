@@ -64,7 +64,9 @@ En `backend/.env` configura:
 PORT=4000
 GEMINI_API_KEY="tu_api_key_real"
 GEMINI_MODEL="gemini-2.5-flash"
-CHAT_DB_PATH="./data/chat.db"
+TURSO_DATABASE_URL="libsql://tu-db.turso.io"
+TURSO_AUTH_TOKEN="tu_token_turso"
+AUTH_TOKEN_SECRET="cambia-esta-clave-para-firmar-tokens"
 ```
 
 Levanta el backend:
@@ -74,7 +76,23 @@ cd backend
 npm run dev
 ```
 
-La BD SQLite se crea automáticamente en `backend/data/chat.db`.
+El backend crea automáticamente las tablas necesarias en Turso para:
+- historial del chatbot
+- usuarios de autenticación
+
+Puedes validar la conexión con:
+
+```bash
+curl http://localhost:4000/health
+curl http://localhost:4000/health/db
+npm --prefix backend run check:db
+```
+
+Para crear un usuario administrativo manualmente:
+
+```bash
+npm --prefix backend run seed:admin -- --name="Admin ECA" --email="admin@eca.com" --password="Password1" --phone="3001234567"
+```
 
 ---
 
@@ -88,23 +106,27 @@ Se abrirá el Metro Bundler en la terminal. Escanea el código QR con **Expo Go*
 
 ---
 
-## Credenciales de prueba
+## Credenciales de prueba / autenticación
 
-El rol se determina automáticamente por el prefijo del correo. La contraseña puede ser cualquier texto.
+Mientras `EXPO_PUBLIC_USE_DEMO_AUTH=true`, el frontend puede seguir usando accesos rápidos demo.
+Si desactivas el demo auth y apuntas a la API real, los usuarios nuevos se crean desde el registro web/móvil con contraseña propia.
 
 | Rol           | Correo de ejemplo         | Contraseña |
 |---------------|---------------------------|------------|
-| Administrador | `admin@empresa.com`       | cualquiera |
-| Reciclador    | `recycler@empresa.com`    | cualquiera |
-| Supervisor    | `supervisor@empresa.com`  | cualquiera |
-| Ciudadano     | `usuario@gmail.com`       | cualquiera |
+| Administrador | `admin@empresa.com`       | Demo / seed manual |
+| Reciclador    | Registro propio           | La que defina el usuario |
+| Supervisor    | `supervisor@empresa.com`  | Demo / seed manual |
+| Ciudadano     | Registro propio           | La que defina el usuario |
+
+> Hoy el registro real crea cuentas para **ciudadano** y **reciclador**.  
+> Los roles **admin** y **supervisor** siguen dependiendo de demo auth o de cargarlos manualmente en la BD.
 
 ---
 
 ## Asistente IA (Chatbot)
 
 La app incluye un chatbot flotante accesible desde cualquier pantalla autenticada.
-Ahora consume el endpoint backend `POST /api/chat`, donde se usa Gemini y se persiste historial por conversación en SQLite.
+Ahora consume el endpoint backend `POST /api/chat`, donde se usa Gemini y se persiste historial por conversación en Turso.
 
 ---
 

@@ -2,13 +2,36 @@ import 'dotenv/config';
 import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
-import { getConversationMessages, saveMessage, upsertConversation } from './db.js';
+import {
+  createUser,
+  ensureDatabaseReady,
+  getConversationMessages,
+  getDatabaseConfigStatus,
+  getUserByEmail,
+  saveMessage,
+  upsertConversation,
+} from './db.js';
+import { createAccessToken, hashPassword, verifyPassword } from './auth.js';
 
 const app = express();
 
-const PORT = Number(process.env.PORT || 4000);
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const ALLOWED_ROLES = new Set(['citizen', 'recycler', 'admin', 'supervisor']);
+
+function readEnvString(name, fallback = '') {
+  const rawValue = String(process.env[name] ?? '').trim();
+  const normalizedValue =
+    rawValue.length >= 2 &&
+    ((rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+      (rawValue.startsWith("'") && rawValue.endsWith("'")))
+      ? rawValue.slice(1, -1).trim()
+      : rawValue;
+
+  return normalizedValue || fallback;
+}
+
+const PORT = Number(readEnvString('PORT', '4000'));
+const GEMINI_API_KEY = readEnvString('GEMINI_API_KEY');
+const GEMINI_MODEL = readEnvString('GEMINI_MODEL', 'gemini-2.5-flash');
 
 const SYSTEM_PROMPT_BASE = `Eres el asistente inteligente de ZipaRecicla, la app oficial de la ECA (Estación de Clasificación y Aprovechamiento de Residuos Sólidos) del municipio de Zipaquirá, Colombia.
 
@@ -53,11 +76,138 @@ function buildSystemPrompt(userRole) {
   return `${SYSTEM_PROMPT_BASE}\n\nContexto del usuario actual:\n${roleCtx}`;
 }
 
+function normalizeRole(value, fallback = 'citizen') {
+  const role = String(value ?? '').trim().toLowerCase();
+  return ALLOWED_ROLES.has(role) ? role : fallback;
+}
+
+function sanitizeUser(user) {
+  return {
+    id: String(user?.id ?? ''),
+    name: String(user?.name ?? ''),
+    email: String(user?.email ?? ''),
+    phone: user?.phone ? String(user.phone) : undefined,
+    role: normalizeRole(user?.role),
+    association: user?.association ? String(user.association) : undefined,
+    status: user?.status ? String(user.status) : undefined,
+  };
+}
+
+function getErrorStatus(error, fallback = 500) {
+  return typeof error?.status === 'number' ? error.status : fallback;
+}
+
+function getErrorMessage(error, fallback = 'Error interno del servidor.') {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'eca-ai-backend' });
+  res.json({
+    ok: true,
+    service: 'eca-ai-backend',
+    dbConfigured: getDatabaseConfigStatus().configured,
+  });
+});
+
+app.get('/health/db', async (_req, res) => {
+  try {
+    await ensureDatabaseReady();
+    return res.json({
+      ok: true,
+      database: 'turso',
+      configured: true,
+    });
+  } catch (error) {
+    return res.status(getErrorStatus(error, 503)).json({
+      ok: false,
+      database: 'turso',
+      configured: getDatabaseConfigStatus().configured,
+      error: {
+        message: getErrorMessage(error, 'No fue posible validar la conexión a Turso.'),
+      },
+    });
+  }
+});
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const name = String(req.body?.name ?? '').trim();
+    const email = String(req.body?.email ?? '').trim().toLowerCase();
+    const phone = String(req.body?.phone ?? '').trim();
+    const role = normalizeRole(req.body?.role, 'citizen');
+    const password = String(req.body?.password ?? '');
+
+    if (!name) {
+      return res.status(400).json({ error: { message: 'El campo "name" es obligatorio.' } });
+    }
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: { message: 'El campo "email" es inválido.' } });
+    }
+    if (!phone) {
+      return res.status(400).json({ error: { message: 'El campo "phone" es obligatorio.' } });
+    }
+    if (!['citizen', 'recycler'].includes(role)) {
+      return res.status(400).json({ error: { message: 'El rol permitido es citizen o recycler.' } });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: { message: 'La contraseña debe tener al menos 8 caracteres.' } });
+    }
+
+    const passwordHash = await hashPassword(password);
+    const user = await createUser({ name, email, phone, role, passwordHash });
+
+    return res.status(201).json({
+      message: 'Cuenta creada correctamente.',
+      user: sanitizeUser(user),
+      token: createAccessToken(user),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(getErrorStatus(error)).json({
+      error: { message: getErrorMessage(error) },
+    });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const email = String(req.body?.email ?? '').trim().toLowerCase();
+    const password = String(req.body?.password ?? '');
+
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ error: { message: 'El campo "email" es inválido.' } });
+    }
+    if (!password) {
+      return res.status(400).json({ error: { message: 'El campo "password" es obligatorio.' } });
+    }
+
+    const user = await getUserByEmail(email);
+    if (!user) {
+      return res.status(401).json({ error: { message: 'Credenciales inválidas.' } });
+    }
+
+    const isPasswordValid = await verifyPassword(password, user.password_hash);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: { message: 'Credenciales inválidas.' } });
+    }
+
+    if (String(user.status ?? 'active') !== 'active') {
+      return res.status(403).json({ error: { message: 'La cuenta no está activa.' } });
+    }
+
+    return res.json({
+      token: createAccessToken(user),
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(getErrorStatus(error)).json({
+      error: { message: getErrorMessage(error) },
+    });
+  }
 });
 
 app.post('/api/chat', async (req, res) => {
@@ -117,10 +267,12 @@ app.post('/api/chat', async (req, res) => {
 
     await saveMessage({ conversationId, sender: 'assistant', content: reply });
 
-    return res.json({ conversationId, reply });
+      return res.json({ conversationId, reply });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ error: { message: 'Error interno del servidor.' } });
+    return res.status(getErrorStatus(error)).json({
+      error: { message: getErrorMessage(error) },
+    });
   }
 });
 
