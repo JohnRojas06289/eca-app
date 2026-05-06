@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import express from 'express';
 import cors from 'cors';
 import {
+  countUsersByRole,
   createUser,
   ensureDatabaseReady,
   getConversationMessages,
@@ -20,6 +21,7 @@ import { createAccessToken, hashPassword, verifyPassword, verifyAccessToken } fr
 const app = express();
 
 const ALLOWED_ROLES = new Set(['citizen', 'recycler', 'admin', 'supervisor', 'superadmin']);
+const ALLOWED_STATUSES = new Set(['active', 'inactive', 'pending']);
 
 function readEnvString(name, fallback = '') {
   const rawValue = String(process.env[name] ?? '').trim();
@@ -85,6 +87,11 @@ function normalizeRole(value, fallback = 'citizen') {
   return ALLOWED_ROLES.has(role) ? role : fallback;
 }
 
+function normalizeStatus(value, fallback = 'active') {
+  const status = String(value ?? '').trim().toLowerCase();
+  return ALLOWED_STATUSES.has(status) ? status : fallback;
+}
+
 function sanitizeUser(user) {
   const role = String(user?.role ?? '').trim().toLowerCase();
   return {
@@ -96,6 +103,8 @@ function sanitizeUser(user) {
     role: ALLOWED_ROLES.has(role) ? role : 'citizen',
     association: user?.association ? String(user.association) : undefined,
     status: user?.status ? String(user.status) : undefined,
+    createdAt: user?.created_at ? String(user.created_at) : undefined,
+    updatedAt: user?.updated_at ? String(user.updated_at) : undefined,
   };
 }
 
@@ -338,7 +347,8 @@ app.post('/api/admin/users', adminMiddleware, async (req, res) => {
     const association = String(req.body?.association ?? '').trim();
     const password = String(req.body?.password ?? '');
     const requestedRole = String(req.body?.role ?? 'citizen').trim().toLowerCase();
-    const status = String(req.body?.status ?? 'active').trim();
+    const rawStatus = req.body?.status;
+    const status = normalizeStatus(rawStatus, 'active');
 
     if (!name) return res.status(400).json({ error: { message: 'El campo "name" es obligatorio.' } });
     if (!email || !email.includes('@')) return res.status(400).json({ error: { message: 'El campo "email" es inválido.' } });
@@ -353,8 +363,20 @@ app.post('/api/admin/users', adminMiddleware, async (req, res) => {
       return res.status(400).json({ error: { message: 'Rol inválido.' } });
     }
 
+    if (rawStatus !== undefined && !ALLOWED_STATUSES.has(String(rawStatus).trim().toLowerCase())) {
+      return res.status(400).json({ error: { message: 'Estado inválido.' } });
+    }
+
     const passwordHash = await hashPassword(password);
-    const user = await createUser({ name, email, phone: phone || null, cedula: cedula || null, role: requestedRole, passwordHash, association: association || null });
+    const user = await createUser({
+      name,
+      email,
+      phone: phone || null,
+      cedula: cedula || null,
+      role: requestedRole,
+      passwordHash,
+      association: requestedRole === 'recycler' ? association || null : null,
+    });
 
     // Ajustar status si se envió diferente al default
     const finalUser = status !== 'active'
@@ -374,7 +396,12 @@ app.put('/api/users/:id', adminMiddleware, async (req, res) => {
     const existingUser = await getUserById(id);
     if (!existingUser) return res.status(404).json({ error: { message: 'Usuario no encontrado.' } });
 
-    const requestedRole = req.body.role ? String(req.body.role).trim().toLowerCase() : undefined;
+    const requestedRole = req.body.role !== undefined
+      ? String(req.body.role).trim().toLowerCase()
+      : undefined;
+    const requestedStatus = req.body.status !== undefined
+      ? String(req.body.status).trim().toLowerCase()
+      : undefined;
 
     // Solo superadmin puede asignar o quitar el rol superadmin
     if (requestedRole === 'superadmin' && req.user.role !== 'superadmin') {
@@ -384,14 +411,38 @@ app.put('/api/users/:id', adminMiddleware, async (req, res) => {
       return res.status(403).json({ error: { message: 'No puedes modificar a un superadmin.' } });
     }
 
+    if (requestedRole !== undefined && !ALLOWED_ROLES.has(requestedRole)) {
+      return res.status(400).json({ error: { message: 'Rol inválido.' } });
+    }
+
+    if (requestedStatus !== undefined && !ALLOWED_STATUSES.has(requestedStatus)) {
+      return res.status(400).json({ error: { message: 'Estado inválido.' } });
+    }
+
+    const isSuperadminUser = existingUser.role === 'superadmin';
+    const willLoseSuperadminRole = isSuperadminUser && requestedRole !== undefined && requestedRole !== 'superadmin';
+    const willBecomeInactive = isSuperadminUser && requestedStatus !== undefined && requestedStatus !== 'active';
+
+    if (isSuperadminUser && (willLoseSuperadminRole || willBecomeInactive)) {
+      const totalSuperadmins = await countUsersByRole('superadmin');
+      if (totalSuperadmins <= 1) {
+        return res.status(400).json({ error: { message: 'Debe existir al menos un superadmin activo.' } });
+      }
+    }
+
     const updates = {};
     if (req.body.name)              updates.name        = String(req.body.name).trim();
     if (req.body.email)             updates.email       = String(req.body.email).trim().toLowerCase();
     if (req.body.phone !== undefined)       updates.phone       = req.body.phone ? String(req.body.phone).trim() : null;
     if (req.body.cedula !== undefined)      updates.cedula      = req.body.cedula ? String(req.body.cedula).trim() : null;
-    if (requestedRole && ALLOWED_ROLES.has(requestedRole)) updates.role = requestedRole;
-    if (req.body.association !== undefined) updates.association = req.body.association ? String(req.body.association).trim() : null;
-    if (req.body.status)            updates.status      = String(req.body.status).trim();
+    if (requestedRole)              updates.role        = requestedRole;
+    if (req.body.association !== undefined || requestedRole === 'recycler' || requestedRole === 'admin' || requestedRole === 'supervisor' || requestedRole === 'citizen' || requestedRole === 'superadmin') {
+      const shouldKeepAssociation = (requestedRole ?? existingUser.role) === 'recycler';
+      updates.association = shouldKeepAssociation && req.body.association
+        ? String(req.body.association).trim()
+        : null;
+    }
+    if (requestedStatus)            updates.status      = requestedStatus;
 
     if (req.body.password) {
       if (String(req.body.password).length < 8) {
@@ -414,9 +465,20 @@ app.delete('/api/users/:id', adminMiddleware, async (req, res) => {
     const existingUser = await getUserById(id);
     if (!existingUser) return res.status(404).json({ error: { message: 'Usuario no encontrado.' } });
 
+    if (req.user.sub === id) {
+      return res.status(400).json({ error: { message: 'No puedes eliminar tu propio usuario.' } });
+    }
+
     // Solo superadmin puede eliminar superadmins
     if (existingUser.role === 'superadmin' && req.user.role !== 'superadmin') {
       return res.status(403).json({ error: { message: 'No puedes eliminar a un superadmin.' } });
+    }
+
+    if (existingUser.role === 'superadmin') {
+      const totalSuperadmins = await countUsersByRole('superadmin');
+      if (totalSuperadmins <= 1) {
+        return res.status(400).json({ error: { message: 'Debe existir al menos un superadmin activo.' } });
+      }
     }
 
     await deleteUser(id);

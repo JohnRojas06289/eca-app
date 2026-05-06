@@ -174,7 +174,7 @@ function parseRecordDate(value: string): Date {
 
 function formatOperationalVehicle(value: OperationalReportRecord['vehicleType']) {
   if (value === 'automotor') return 'Automotor';
-  if (value === 'placa') return 'Placa';
+  if (value === 'vehiculo_asistido') return 'Vehículo asistido';
   return 'Tracción humana';
 }
 

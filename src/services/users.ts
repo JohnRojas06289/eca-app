@@ -9,6 +9,8 @@ export interface ApiUser {
   role: string;
   association?: string;
   status: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface ListUsersResponse {
@@ -22,6 +24,11 @@ interface UserResponse {
 export async function fetchUsers(token: string): Promise<ApiUser[]> {
   const data = await apiRequest<ListUsersResponse>('/api/users', { token });
   return data.users;
+}
+
+export async function fetchUserById(token: string, id: string): Promise<ApiUser> {
+  const data = await apiRequest<UserResponse>(`/api/users/${id}`, { token });
+  return data.user;
 }
 
 export interface CreateUserPayload {
@@ -47,11 +54,11 @@ export async function createApiUser(token: string, payload: CreateUserPayload): 
 export interface UpdateUserPayload {
   name?: string;
   email?: string;
-  phone?: string;
-  cedula?: string;
+  phone?: string | null;
+  cedula?: string | null;
   role?: string;
   status?: string;
-  association?: string;
+  association?: string | null;
   password?: string;
 }
 

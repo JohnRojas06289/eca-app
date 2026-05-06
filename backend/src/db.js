@@ -150,6 +150,19 @@ function normalizeEmail(email) {
   return String(email ?? '').trim().toLowerCase();
 }
 
+function normalizeOptionalText(value) {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim();
+  return normalized === '' ? null : normalized;
+}
+
+async function assertEmailAvailable(email, currentUserId = null) {
+  const existingUser = await getUserByEmail(email);
+  if (existingUser && existingUser.id !== currentUserId) {
+    throw createHttpError('Ya existe una cuenta registrada con ese correo.', 409);
+  }
+}
+
 export async function upsertConversation({ conversationId, userId, userRole }) {
   await query(
     `INSERT INTO conversations (id, user_id, user_role) VALUES (?, ?, ?)
@@ -209,11 +222,10 @@ export async function createUser({
   association = null,
 }) {
   const normalizedEmail = normalizeEmail(email);
-
-  const existingUser = await getUserByEmail(normalizedEmail);
-  if (existingUser) {
-    throw createHttpError('Ya existe una cuenta registrada con ese correo.', 409);
+  if (!normalizedEmail) {
+    throw createHttpError('El campo "email" es obligatorio.', 400);
   }
+  await assertEmailAvailable(normalizedEmail);
 
   const userId = crypto.randomUUID();
 
@@ -225,11 +237,11 @@ export async function createUser({
       userId,
       String(name ?? '').trim(),
       normalizedEmail,
-      phone ? String(phone).trim() : null,
-      cedula ? String(cedula).trim() : null,
+      normalizeOptionalText(phone),
+      normalizeOptionalText(cedula),
       String(role ?? 'citizen').trim(),
       String(passwordHash ?? ''),
-      association ? String(association).trim() : null,
+      normalizeOptionalText(association),
     ],
   );
 
@@ -239,19 +251,60 @@ export async function createUser({
 export async function getUsers() {
   return query(
     `SELECT id, name, email, phone, cedula, role, association, status, created_at, updated_at
-     FROM users ORDER BY created_at DESC`,
+     FROM users ORDER BY created_at DESC, name ASC`,
   );
+}
+
+export async function countUsersByRole(role) {
+  const rows = await query(
+    `SELECT COUNT(*) AS total FROM users WHERE role = ?`,
+    [String(role ?? '').trim().toLowerCase()],
+  );
+
+  return Number(rows[0]?.total ?? 0);
 }
 
 export async function updateUser(id, updates) {
   const allowedFields = ['name', 'email', 'phone', 'cedula', 'role', 'association', 'status'];
   const setClauses = [];
   const args = [];
+  const normalizedUpdates = { ...updates };
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'name')) {
+    const normalizedName = String(updates.name ?? '').trim();
+    if (!normalizedName) {
+      throw createHttpError('El campo "name" no puede estar vacío.', 400);
+    }
+    normalizedUpdates.name = normalizedName;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'email')) {
+    const normalizedEmail = normalizeEmail(updates.email);
+    if (!normalizedEmail) {
+      throw createHttpError('El campo "email" es obligatorio.', 400);
+    }
+    await assertEmailAvailable(normalizedEmail, String(id ?? ''));
+    normalizedUpdates.email = normalizedEmail;
+  }
+
+  for (const field of ['phone', 'cedula', 'association']) {
+    if (Object.prototype.hasOwnProperty.call(updates, field)) {
+      normalizedUpdates[field] = normalizeOptionalText(updates[field]);
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'role')) {
+    normalizedUpdates.role = String(updates.role ?? '').trim().toLowerCase();
+  }
+
+  if (Object.prototype.hasOwnProperty.call(updates, 'status')) {
+    normalizedUpdates.status = String(updates.status ?? '').trim().toLowerCase();
+  }
 
   for (const field of allowedFields) {
-    if (updates[field] !== undefined) {
+    if (normalizedUpdates[field] !== undefined) {
       setClauses.push(`${field} = ?`);
-      args.push(updates[field]);
+      args.push(normalizedUpdates[field]);
     }
   }
 
@@ -276,4 +329,3 @@ export async function updateUser(id, updates) {
 export async function deleteUser(id) {
   await query(`DELETE FROM users WHERE id = ?`, [id]);
 }
-

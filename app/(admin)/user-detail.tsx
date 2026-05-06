@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,7 @@ import { CustomButton } from '@/src/components/CustomButton';
 import { MaterialItem } from '@/src/components/MaterialItem';
 import type { MaterialType } from '@/src/components/MaterialItem';
 import { formatRelativeTime } from '@/src/utils/date';
+import { useAuth } from '@/src/hooks/useAuth';
 import { useUsers, type UserRole, type UserStatus } from '@/src/context/UsersContext';
 
 const RECENT_WEIGHINGS: {
@@ -40,15 +41,19 @@ const ROLE_LABELS: Record<string, string> = {
   recycler: 'Reutilizador',
   admin:    'Administrador',
   citizen:  'Ciudadano',
+  supervisor: 'Supervisor',
+  superadmin: 'Superadmin',
 };
-const ROLE_EDIT_OPTIONS: UserRole[] = ['recycler', 'citizen', 'admin'];
 
 export default function UserDetailScreen() {
   const router = useRouter();
-  const { getUserById, updateUser, deleteUser } = useUsers();
+  const { user: authUser } = useAuth();
+  const { getUserById, loadUserById, updateUser, deleteUser } = useUsers();
   const params = useLocalSearchParams<{
     userId: string;
     userName: string;
+    userEmail: string;
+    userPhone: string;
     userCedula: string;
     userRole: string;
     userStatus: string;
@@ -59,8 +64,10 @@ export default function UserDetailScreen() {
 
   const userId     = params.userId      ?? '';
   const user = getUserById(userId);
-  const initName   = user?.name ?? params.userName ?? '—';
-  const initCedula = user?.cedula ?? params.userCedula ?? '—';
+  const initName   = user?.name ?? params.userName ?? '';
+  const initEmail  = user?.email ?? params.userEmail ?? '';
+  const initPhone  = user?.phone ?? params.userPhone ?? '';
+  const initCedula = user?.cedula ?? params.userCedula ?? '';
   const initRole   = (user?.role ?? params.userRole ?? 'citizen') as UserRole;
   const initStatus = (user?.status ?? params.userStatus ?? 'active') as UserStatus;
   const initAssoc  = user?.association ?? params.userAssociation ?? '';
@@ -70,26 +77,61 @@ export default function UserDetailScreen() {
   const [role, setRole]           = useState<UserRole>(initRole);
   const [status, setStatus]       = useState<UserStatus>(initStatus);
   const [name, setName]           = useState(initName);
+  const [email, setEmail]         = useState(initEmail);
+  const [phone, setPhone]         = useState(initPhone);
   const [cedula, setCedula]       = useState(initCedula);
   const [association, setAssoc]   = useState(initAssoc);
   const [toggling, setToggling]   = useState(false);
+  const [loadingUser, setLoadingUser] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [editVisible, setEditVisible] = useState(false);
   const [editName, setEditName]   = useState(initName);
+  const [editEmail, setEditEmail] = useState(initEmail);
+  const [editPhone, setEditPhone] = useState(initPhone);
   const [editCedula, setEditCedula] = useState(initCedula);
   const [editRole, setEditRole]   = useState<UserRole>(initRole);
   const [editAssoc, setEditAssoc] = useState(initAssoc);
+  const [editPassword, setEditPassword] = useState('');
+
+  const ROLE_EDIT_OPTIONS: UserRole[] = authUser?.role === 'superadmin'
+    ? ['recycler', 'citizen', 'admin', 'supervisor', 'superadmin']
+    : ['recycler', 'citizen', 'admin', 'supervisor'];
+
+  useEffect(() => {
+    if (!user) return;
+    setName(user.name);
+    setEmail(user.email);
+    setPhone(user.phone ?? '');
+    setCedula(user.cedula);
+    setRole(user.role);
+    setStatus(user.status);
+    setAssoc(user.association ?? '');
+  }, [user]);
+
+  useEffect(() => {
+    if (!userId || user) return;
+    setLoadingUser(true);
+    setLoadError(null);
+    loadUserById(userId)
+      .catch((error: any) => {
+        setLoadError(error?.message ?? 'No se pudo cargar el usuario.');
+      })
+      .finally(() => setLoadingUser(false));
+  }, [user, userId, loadUserById]);
 
   const statusCfg = STATUS_CONFIG[status];
-  const initials  = name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+  const initials  = name.split(' ').map((n: string) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   async function toggleStatus() {
     if (!userId) return;
     setToggling(true);
     try {
-      await new Promise((r) => setTimeout(r, 400));
       const next: UserStatus = status === 'active' ? 'inactive' : 'active';
+      await updateUser(userId, { status: next });
       setStatus(next);
-      updateUser(userId, { status: next });
+    } catch (error: any) {
+      Alert.alert('Error', error?.message ?? 'No se pudo actualizar el estado del usuario.');
     } finally {
       setToggling(false);
     }
@@ -103,9 +145,13 @@ export default function UserDetailScreen() {
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Aprobar', style: 'default', onPress: () => {
-            setStatus('active');
-            updateUser(userId, { status: 'active' });
+          text: 'Aprobar', style: 'default', onPress: async () => {
+            try {
+              await updateUser(userId, { status: 'active' });
+              setStatus('active');
+            } catch (error: any) {
+              Alert.alert('Error', error?.message ?? 'No se pudo aprobar el usuario.');
+            }
           },
         },
       ],
@@ -114,45 +160,77 @@ export default function UserDetailScreen() {
 
   function openEdit() {
     setEditName(name);
+    setEditEmail(email);
+    setEditPhone(phone);
     setEditCedula(cedula);
     setEditRole(role);
     setEditAssoc(association);
+    setEditPassword('');
     setEditVisible(true);
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (!userId) return;
-    if (!editName.trim() || !editCedula.trim()) {
-      Alert.alert('Campos requeridos', 'Nombre y cédula son obligatorios.');
+    if (!editName.trim() || !editEmail.trim()) {
+      Alert.alert('Campos requeridos', 'Nombre y correo son obligatorios.');
       return;
     }
-    setName(editName.trim());
-    setCedula(editCedula.trim());
+    if (!editEmail.includes('@')) {
+      Alert.alert('Correo inválido', 'Ingresa un correo válido.');
+      return;
+    }
+    if (editPassword.trim() && editPassword.trim().length < 8) {
+      Alert.alert('Contraseña corta', 'La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
     const nextRole = editRole;
     const nextAssoc = nextRole === 'recycler' ? editAssoc.trim() : '';
-    setRole(nextRole);
-    setAssoc(nextAssoc);
-    updateUser(userId, {
-      name: editName.trim(),
-      cedula: editCedula.trim(),
-      role: nextRole,
-      association: nextAssoc || undefined,
-      totalKg: nextRole === 'recycler' ? totalKg : undefined,
-    });
-    setEditVisible(false);
+    setSavingEdit(true);
+    try {
+      await updateUser(userId, {
+        name: editName.trim(),
+        email: editEmail.trim(),
+        phone: editPhone.trim() || null,
+        cedula: editCedula.trim() || null,
+        role: nextRole,
+        association: nextRole === 'recycler' ? nextAssoc || null : null,
+        password: editPassword.trim() || undefined,
+      });
+
+      setName(editName.trim());
+      setEmail(editEmail.trim());
+      setPhone(editPhone.trim());
+      setCedula(editCedula.trim());
+      setRole(nextRole);
+      setAssoc(nextAssoc);
+      setEditVisible(false);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message ?? 'No se pudo guardar el usuario.');
+    } finally {
+      setSavingEdit(false);
+    }
   }
 
   function confirmDelete() {
     if (!userId) return;
+    if (authUser?.id === userId) {
+      Alert.alert('Acción no permitida', 'No puedes eliminar tu propio usuario.');
+      return;
+    }
     Alert.alert(
       'Eliminar usuario',
       `¿Eliminar a ${name}? Esta acción no se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Eliminar', style: 'destructive', onPress: () => {
-            deleteUser(userId);
-            router.back();
+          text: 'Eliminar', style: 'destructive', onPress: async () => {
+            try {
+              await deleteUser(userId);
+              router.back();
+            } catch (error: any) {
+              Alert.alert('Error', error?.message ?? 'No se pudo eliminar el usuario.');
+            }
           },
         },
       ],
@@ -174,11 +252,19 @@ export default function UserDetailScreen() {
         <Text style={styles.headerTitle}>Detalle de Usuario</Text>
         <TouchableOpacity
           onPress={openEdit}
+          disabled={loadingUser}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
+
+      {!!loadError && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="warning-outline" size={16} color={theme.colors.error} />
+          <Text style={styles.errorBannerText}>{loadError}</Text>
+        </View>
+      )}
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -195,8 +281,9 @@ export default function UserDetailScreen() {
               {statusCfg.label}
             </Text>
           </View>
-          <Text style={styles.profileName}>{name}</Text>
-          <Text style={styles.profileCedula}>CC {cedula}</Text>
+          <Text style={styles.profileName}>{name || 'Usuario'}</Text>
+          <Text style={styles.profileCedula}>CC {cedula || '—'}</Text>
+          <Text style={styles.profileEmail}>{email || '—'}</Text>
           {association !== '' && (
             <View style={styles.assocBadge}>
               <Ionicons name="leaf-outline" size={12} color={theme.colors.primary} />
@@ -228,6 +315,18 @@ export default function UserDetailScreen() {
             <Ionicons name="calendar-outline" size={16} color={theme.colors.textMuted} />
             <Text style={styles.infoLabel}>Registrado</Text>
             <Text style={styles.infoValue}>{joinedAt}</Text>
+          </View>
+          <View style={styles.infoDivider} />
+          <View style={styles.infoRow}>
+            <Ionicons name="mail-outline" size={16} color={theme.colors.textMuted} />
+            <Text style={styles.infoLabel}>Correo</Text>
+            <Text style={styles.infoValue}>{email}</Text>
+          </View>
+          <View style={styles.infoDivider} />
+          <View style={styles.infoRow}>
+            <Ionicons name="call-outline" size={16} color={theme.colors.textMuted} />
+            <Text style={styles.infoLabel}>Teléfono</Text>
+            <Text style={styles.infoValue}>{phone || '—'}</Text>
           </View>
           <View style={styles.infoDivider} />
           <View style={styles.infoRow}>
@@ -313,54 +412,90 @@ export default function UserDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.fieldLabel}>Nombre completo</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={editName}
-              onChangeText={setEditName}
-              placeholderTextColor={theme.colors.textMuted}
-            />
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.fieldLabel}>Nombre completo</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholderTextColor={theme.colors.textMuted}
+              />
 
-            <Text style={styles.fieldLabel}>Cédula</Text>
-            <TextInput
-              style={styles.fieldInput}
-              value={editCedula}
-              onChangeText={setEditCedula}
-              keyboardType="numeric"
-              placeholderTextColor={theme.colors.textMuted}
-            />
+              <Text style={styles.fieldLabel}>Correo</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholderTextColor={theme.colors.textMuted}
+              />
 
-            <Text style={styles.fieldLabel}>Rol</Text>
-            <View style={styles.segmentRow}>
-              {ROLE_EDIT_OPTIONS.map((r) => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.segmentBtn, editRole === r && styles.segmentBtnActive]}
-                  onPress={() => setEditRole(r)}
-                >
-                  <Text style={[styles.segmentText, editRole === r && styles.segmentTextActive]}>
-                    {ROLE_LABELS[r]}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+              <Text style={styles.fieldLabel}>Teléfono</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                keyboardType="phone-pad"
+                placeholderTextColor={theme.colors.textMuted}
+              />
 
-            {editRole === 'recycler' && (
-              <>
-                <Text style={styles.fieldLabel}>Asociación</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editAssoc}
-                  onChangeText={setEditAssoc}
-                  placeholder="Ej: Asoc. Zipaquirá"
-                  placeholderTextColor={theme.colors.textMuted}
-                />
-              </>
-            )}
+              <Text style={styles.fieldLabel}>Cédula</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editCedula}
+                onChangeText={setEditCedula}
+                keyboardType="numeric"
+                placeholderTextColor={theme.colors.textMuted}
+              />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={saveEdit} activeOpacity={0.85}>
-              <Text style={styles.saveBtnText}>Guardar cambios</Text>
-            </TouchableOpacity>
+              <Text style={styles.fieldLabel}>Rol</Text>
+              <View style={styles.segmentRow}>
+                {ROLE_EDIT_OPTIONS.map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[styles.segmentBtn, editRole === r && styles.segmentBtnActive]}
+                    onPress={() => setEditRole(r)}
+                  >
+                    <Text style={[styles.segmentText, editRole === r && styles.segmentTextActive]}>
+                      {ROLE_LABELS[r]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {editRole === 'recycler' && (
+                <>
+                  <Text style={styles.fieldLabel}>Asociación</Text>
+                  <TextInput
+                    style={styles.fieldInput}
+                    value={editAssoc}
+                    onChangeText={setEditAssoc}
+                    placeholder="Ej: Asoc. Zipaquirá"
+                    placeholderTextColor={theme.colors.textMuted}
+                  />
+                </>
+              )}
+
+              <Text style={styles.fieldLabel}>Nueva contraseña (opcional)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={editPassword}
+                onChangeText={setEditPassword}
+                secureTextEntry
+                placeholder="Solo si deseas cambiarla"
+                placeholderTextColor={theme.colors.textMuted}
+              />
+
+              <TouchableOpacity
+                style={[styles.saveBtn, savingEdit && styles.saveBtnDisabled]}
+                onPress={saveEdit}
+                activeOpacity={0.85}
+                disabled={savingEdit}
+              >
+                <Text style={styles.saveBtnText}>{savingEdit ? 'Guardando...' : 'Guardar cambios'}</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -383,6 +518,22 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.h4,
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.textPrimary,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: '#fde8e8',
+    marginHorizontal: theme.spacing.screen,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.error,
   },
 
   scroll: {
@@ -435,6 +586,11 @@ const styles = StyleSheet.create({
   profileCedula: {
     fontSize: theme.typography.sizes.body,
     color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.xs,
+  },
+  profileEmail: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textMuted,
     marginBottom: theme.spacing.md,
   },
   assocBadge: {
@@ -618,6 +774,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: theme.spacing.xl,
+  },
+  saveBtnDisabled: {
+    opacity: 0.7,
   },
   saveBtnText: {
     fontSize: theme.typography.sizes.body,

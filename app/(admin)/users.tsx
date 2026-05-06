@@ -17,6 +17,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { formatDateTime } from '@/src/utils/date';
+import { useAuth } from '@/src/hooks/useAuth';
 import {
   useUsers,
   type AppUser,
@@ -32,6 +33,7 @@ const ROLE_FILTERS: { key: FilterRole; label: string }[] = [
   { key: 'recycler',   label: 'Reutilizadores' },
   { key: 'citizen',    label: 'Ciudadanos'     },
   { key: 'admin',      label: 'Admins'         },
+  { key: 'supervisor', label: 'Supervisores'   },
   { key: 'superadmin', label: 'Superadmin'     },
 ];
 
@@ -54,16 +56,18 @@ const ROLE_OPTIONS: UserRole[]     = ['recycler', 'citizen', 'admin', 'superviso
 
 interface UserForm extends CreateUserInput {
   email: string;
+  phone: string;
   password: string;
 }
 
 const EMPTY_FORM: UserForm = {
-  name: '', email: '', cedula: '', role: 'recycler', status: 'pending', association: '', password: '',
+  name: '', email: '', phone: '', cedula: '', role: 'recycler', status: 'pending', association: '', password: '',
 };
 
 export default function AdminUsersScreen() {
   const router = useRouter();
-  const { users, isLoading, error, createUser, deleteUser } = useUsers();
+  const { user: authUser } = useAuth();
+  const { users, isLoading, error, reload, createUser, deleteUser } = useUsers();
 
   const [roleFilter, setRoleFilter] = useState<FilterRole>('all');
   const [search, setSearch]         = useState('');
@@ -71,12 +75,19 @@ export default function AdminUsersScreen() {
   const [form, setForm]             = useState<UserForm>(EMPTY_FORM);
   const [saving, setSaving]         = useState(false);
   const now = new Date();
+  const canManageSuperadmins = authUser?.role === 'superadmin';
+
+  const availableRoleOptions = useMemo(
+    () => (canManageSuperadmins ? ROLE_OPTIONS : ROLE_OPTIONS.filter((role) => role !== 'superadmin')),
+    [canManageSuperadmins],
+  );
 
   const filtered = users.filter((u) => {
     const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     const matchesSearch =
       search === '' ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
       u.cedula.includes(search);
     return matchesRole && matchesSearch;
   });
@@ -98,6 +109,7 @@ export default function AdminUsersScreen() {
   async function handleSave() {
     const name = form.name.trim();
     const email = form.email.trim();
+    const phone = form.phone.trim();
     const cedula = form.cedula.trim();
     const password = form.password.trim();
 
@@ -119,6 +131,7 @@ export default function AdminUsersScreen() {
       await createUser({
         name,
         email,
+        phone: phone || undefined,
         cedula,
         role: form.role,
         status: form.status,
@@ -135,6 +148,11 @@ export default function AdminUsersScreen() {
   }
 
   function confirmDelete(u: AppUser) {
+    if (authUser?.id === u.id) {
+      Alert.alert('Acción no permitida', 'No puedes eliminar tu propio usuario.');
+      return;
+    }
+
     Alert.alert(
       'Eliminar usuario',
       `¿Eliminar a ${u.name}? Esta acción no se puede deshacer.`,
@@ -165,7 +183,18 @@ export default function AdminUsersScreen() {
           <Text style={styles.headerTitle}>Usuarios</Text>
           <Text style={styles.headerSubtitle}>Corte: {formatDateTime(now)}</Text>
         </View>
-        {isLoading && <Ionicons name="sync-outline" size={20} color={theme.colors.primary} />}
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={reload}
+          disabled={isLoading}
+          activeOpacity={0.85}
+        >
+          <Ionicons
+            name={isLoading ? 'sync-outline' : 'refresh-outline'}
+            size={20}
+            color={theme.colors.primary}
+          />
+        </TouchableOpacity>
       </View>
 
       {!!error && (
@@ -194,7 +223,7 @@ export default function AdminUsersScreen() {
         <Ionicons name="search-outline" size={18} color={theme.colors.textMuted} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar por nombre o cédula..."
+          placeholder="Buscar por nombre, correo o cédula..."
           placeholderTextColor={theme.colors.textMuted}
           value={search}
           onChangeText={setSearch}
@@ -244,6 +273,8 @@ export default function AdminUsersScreen() {
                     params: {
                       userId:          u.id,
                       userName:        u.name,
+                      userEmail:       u.email,
+                      userPhone:       u.phone ?? '',
                       userCedula:      u.cedula,
                       userRole:        u.role,
                       userStatus:      u.status,
@@ -268,6 +299,7 @@ export default function AdminUsersScreen() {
                     </View>
                   </View>
                   <Text style={styles.userCedula}>CC {u.cedula}</Text>
+                  <Text style={styles.userEmail} numberOfLines={1}>{u.email}</Text>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaText}>Estado:</Text>
                     <Text style={[styles.metaTextStrong, { color: statusCfg.color }]}>{statusCfg.label}</Text>
@@ -339,6 +371,16 @@ export default function AdminUsersScreen() {
                 onChangeText={(v) => setForm((f) => ({ ...f, email: v }))}
               />
 
+              <Text style={styles.fieldLabel}>Teléfono</Text>
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="Ej: 3001234567"
+                placeholderTextColor={theme.colors.textMuted}
+                keyboardType="phone-pad"
+                value={form.phone}
+                onChangeText={(v) => setForm((f) => ({ ...f, phone: v }))}
+              />
+
               {/* Contraseña */}
               <Text style={styles.fieldLabel}>Contraseña * (mín. 8 caracteres)</Text>
               <TextInput
@@ -364,7 +406,7 @@ export default function AdminUsersScreen() {
               {/* Rol */}
               <Text style={styles.fieldLabel}>Rol</Text>
               <View style={styles.segmentRow}>
-                {ROLE_OPTIONS.map((r) => (
+                {availableRoleOptions.map((r) => (
                   <TouchableOpacity
                     key={r}
                     style={[styles.segmentBtn, form.role === r && styles.segmentBtnActive]}
@@ -434,6 +476,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.screen,
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
+  },
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
   },
   errorBanner: {
     flexDirection: 'row',
@@ -621,6 +673,11 @@ const styles = StyleSheet.create({
   userCedula: {
     fontSize: theme.typography.sizes.small,
     color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  userEmail: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textMuted,
     marginBottom: 2,
   },
   metaRow: {
