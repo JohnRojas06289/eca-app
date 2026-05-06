@@ -86,15 +86,17 @@ export default function LoginScreen() {
         await new Promise((r) => setTimeout(r, 600));
         const prefix = email.split('@')[0].toLowerCase();
         role =
-          prefix === 'admin'      ? 'admin'      :
-          prefix === 'recycler'   ? 'recycler'   :
-          prefix === 'supervisor' ? 'supervisor' :
+          prefix === 'admin'       ? 'admin'      :
+          prefix === 'recycler'    ? 'recycler'   :
+          prefix === 'supervisor'  ? 'supervisor' :
+          prefix === 'superadmin'  ? 'superadmin' :
           'citizen';
         const names: Record<UserRole, string> = {
           admin:      'Carlos Administrador',
           recycler:   'Juan Reciclador',
           supervisor: 'Ana Supervisora',
           citizen:    'María Ciudadana',
+          superadmin: 'Super Admin',
         };
         await signIn({
           id: email,
@@ -112,6 +114,7 @@ export default function LoginScreen() {
         role === 'admin'      ? '/(admin)'      :
         role === 'recycler'   ? '/(recycler)'   :
         role === 'supervisor' ? '/(supervisor)' :
+        role === 'superadmin' ? '/(admin)'      :
         '/(citizen)';
       router.replace(destination as any);
     } catch {
