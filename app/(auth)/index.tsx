@@ -72,14 +72,18 @@ export default function LoginScreen() {
   }
 
   async function handleSuperAdminLogin() {
+    if (!API_BASE_URL) {
+      setLoginError('API_BASE_URL no configurada. Ingresa manualmente con el formulario.');
+      return;
+    }
     setLoading(true);
     setLoginError('');
     try {
       const user = await loginWithApi({ email: 'superadmin@eca.com', password: 'EcaSuper2024!' });
       await signIn(user);
       router.replace('/(admin)');
-    } catch {
-      setLoginError('No se pudo conectar como superadmin. Verifica que el backend esté activo.');
+    } catch (err: any) {
+      setLoginError(err?.message ?? 'Error desconocido al conectar con el backend.');
     } finally {
       setLoading(false);
     }
