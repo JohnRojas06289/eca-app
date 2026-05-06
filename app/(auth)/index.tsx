@@ -64,10 +64,25 @@ export default function LoginScreen() {
       recycler:   { name: 'Juan Reciclador',       email: 'recycler@demo.com' },
       supervisor: { name: 'Ana Supervisora',        email: 'supervisor@demo.com' },
       citizen:    { name: 'María Ciudadana',        email: 'citizen@demo.com' },
+      superadmin: { name: 'Super Admin',            email: 'superadmin@demo.com' },
     };
     const { name, email } = profiles[role];
     await signIn({ id: email, name, role, token: 'demo-token', email });
-    router.replace(`/(${role})` as any);
+    router.replace(role === 'superadmin' ? '/(admin)' : `/(${role})` as any);
+  }
+
+  async function handleSuperAdminLogin() {
+    setLoading(true);
+    setLoginError('');
+    try {
+      const user = await loginWithApi({ email: 'superadmin@eca.com', password: 'EcaSuper2024!' });
+      await signIn(user);
+      router.replace('/(admin)');
+    } catch {
+      setLoginError('No se pudo conectar como superadmin. Verifica que el backend esté activo.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleLogin() {
@@ -249,6 +264,16 @@ export default function LoginScreen() {
                   <Text style={styles.quickBtnText}>Ciudadano</Text>
                 </TouchableOpacity>
               </View>
+
+              <TouchableOpacity
+                style={styles.superadminBtn}
+                onPress={handleSuperAdminLogin}
+                activeOpacity={0.8}
+                disabled={loading}
+              >
+                <Ionicons name="key-outline" size={16} color="#fff" />
+                <Text style={styles.quickBtnText}>Superadmin (real)</Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
@@ -405,6 +430,17 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.xl,
     flexBasis: '47%',
     flexGrow: 1,
+  },
+  superadminBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.radius.xl,
+    backgroundColor: '#1a1a2e',
+    width: '100%',
+    marginTop: theme.spacing.xs,
   },
   quickBtnText: {
     color: '#fff',
