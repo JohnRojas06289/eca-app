@@ -96,7 +96,8 @@ export default function LoginScreen() {
     try {
       let role: UserRole;
 
-      if (API_BASE_URL && !USE_DEMO_AUTH) {
+      if (API_BASE_URL) {
+        // Siempre usa el backend real cuando está configurado
         const user = await loginWithApi({ email, password });
         role = user.role;
         await signIn(user);
