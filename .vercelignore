@@ -4,3 +4,4 @@ backend
 .expo
 dist
 *.log
+.windsurf
