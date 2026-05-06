@@ -28,16 +28,19 @@ import {
 type FilterRole = 'all' | UserRole;
 
 const ROLE_FILTERS: { key: FilterRole; label: string }[] = [
-  { key: 'all',      label: 'Todos'         },
-  { key: 'recycler', label: 'Reutilizadores' },
-  { key: 'citizen',  label: 'Ciudadanos'    },
-  { key: 'admin',    label: 'Admins'        },
+  { key: 'all',        label: 'Todos'          },
+  { key: 'recycler',   label: 'Reutilizadores' },
+  { key: 'citizen',    label: 'Ciudadanos'     },
+  { key: 'admin',      label: 'Admins'         },
+  { key: 'superadmin', label: 'Superadmin'     },
 ];
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; bgColor: string }> = {
-  recycler: { label: 'Reutilizador', color: theme.colors.badgeRecyclerText, bgColor: theme.colors.badgeRecyclerBg },
-  citizen:  { label: 'Ciudadano',    color: theme.colors.info,              bgColor: theme.colors.infoLight       },
-  admin:    { label: 'Admin',        color: theme.colors.badgeAdminText,    bgColor: theme.colors.badgeAdminBg    },
+  recycler:   { label: 'Reutilizador', color: theme.colors.badgeRecyclerText, bgColor: theme.colors.badgeRecyclerBg },
+  citizen:    { label: 'Ciudadano',    color: theme.colors.info,              bgColor: theme.colors.infoLight       },
+  admin:      { label: 'Admin',        color: theme.colors.badgeAdminText,    bgColor: theme.colors.badgeAdminBg    },
+  supervisor: { label: 'Supervisor',   color: theme.colors.warning,           bgColor: theme.colors.warningLight    },
+  superadmin: { label: 'Superadmin',   color: theme.colors.error,             bgColor: '#fde8e8'                    },
 };
 
 const STATUS_CONFIG: Record<UserStatus, { label: string; color: string; dotColor: string }> = {
@@ -47,20 +50,25 @@ const STATUS_CONFIG: Record<UserStatus, { label: string; color: string; dotColor
 };
 
 const STATUS_OPTIONS: UserStatus[] = ['active', 'pending', 'inactive'];
-const ROLE_OPTIONS: UserRole[]    = ['recycler', 'citizen', 'admin'];
+const ROLE_OPTIONS: UserRole[]     = ['recycler', 'citizen', 'admin', 'supervisor', 'superadmin'];
 
-const EMPTY_FORM: CreateUserInput = {
-  name: '', cedula: '', role: 'recycler', status: 'pending', association: '',
+interface UserForm extends CreateUserInput {
+  email: string;
+  password: string;
+}
+
+const EMPTY_FORM: UserForm = {
+  name: '', email: '', cedula: '', role: 'recycler', status: 'pending', association: '', password: '',
 };
 
 export default function AdminUsersScreen() {
   const router = useRouter();
-  const { users, createUser, deleteUser } = useUsers();
+  const { users, isLoading, error, createUser, deleteUser } = useUsers();
 
   const [roleFilter, setRoleFilter] = useState<FilterRole>('all');
   const [search, setSearch]         = useState('');
   const [modalVisible, setModalVisible] = useState(false);
-  const [form, setForm]             = useState<CreateUserInput>(EMPTY_FORM);
+  const [form, setForm]             = useState<UserForm>(EMPTY_FORM);
   const [saving, setSaving]         = useState(false);
   const now = new Date();
 
@@ -89,28 +97,41 @@ export default function AdminUsersScreen() {
 
   async function handleSave() {
     const name = form.name.trim();
+    const email = form.email.trim();
     const cedula = form.cedula.trim();
+    const password = form.password.trim();
 
-    if (!name || !cedula) {
-      Alert.alert('Campos requeridos', 'Nombre y cédula son obligatorios.');
+    if (!name || !email || !password) {
+      Alert.alert('Campos requeridos', 'Nombre, correo y contraseña son obligatorios.');
       return;
     }
-
-    if (users.some((u) => u.cedula === cedula)) {
-      Alert.alert('Cédula duplicada', 'Ya existe un usuario registrado con esa cédula.');
+    if (!email.includes('@')) {
+      Alert.alert('Correo inválido', 'Ingresa un correo válido.');
+      return;
+    }
+    if (password.length < 8) {
+      Alert.alert('Contraseña corta', 'La contraseña debe tener al menos 8 caracteres.');
       return;
     }
 
     setSaving(true);
-    await new Promise((r) => setTimeout(r, 300));
-    createUser({
-      ...form,
-      name,
-      cedula,
-      association: form.role === 'recycler' ? form.association?.trim() : undefined,
-    });
-    setSaving(false);
-    setModalVisible(false);
+    try {
+      await createUser({
+        name,
+        email,
+        cedula,
+        role: form.role,
+        status: form.status,
+        association: form.role === 'recycler' ? form.association?.trim() : undefined,
+        password,
+      });
+      setModalVisible(false);
+      setForm(EMPTY_FORM);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'No se pudo crear el usuario.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   function confirmDelete(u: AppUser) {
@@ -119,7 +140,17 @@ export default function AdminUsersScreen() {
       `¿Eliminar a ${u.name}? Esta acción no se puede deshacer.`,
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: () => deleteUser(u.id) },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteUser(u.id);
+            } catch (err: any) {
+              Alert.alert('Error', err?.message ?? 'No se pudo eliminar el usuario.');
+            }
+          },
+        },
       ],
     );
   }
@@ -134,7 +165,15 @@ export default function AdminUsersScreen() {
           <Text style={styles.headerTitle}>Usuarios</Text>
           <Text style={styles.headerSubtitle}>Corte: {formatDateTime(now)}</Text>
         </View>
+        {isLoading && <Ionicons name="sync-outline" size={20} color={theme.colors.primary} />}
       </View>
+
+      {!!error && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="warning-outline" size={16} color={theme.colors.error} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       <View style={styles.metricsRow}>
         <View style={styles.metricCard}>
@@ -288,8 +327,31 @@ export default function AdminUsersScreen() {
                 onChangeText={(v) => setForm((f) => ({ ...f, name: v }))}
               />
 
+              {/* Correo */}
+              <Text style={styles.fieldLabel}>Correo electrónico *</Text>
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="Ej: maria@eca.com"
+                placeholderTextColor={theme.colors.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={form.email}
+                onChangeText={(v) => setForm((f) => ({ ...f, email: v }))}
+              />
+
+              {/* Contraseña */}
+              <Text style={styles.fieldLabel}>Contraseña * (mín. 8 caracteres)</Text>
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="Contraseña temporal"
+                placeholderTextColor={theme.colors.textMuted}
+                secureTextEntry
+                value={form.password}
+                onChangeText={(v) => setForm((f) => ({ ...f, password: v }))}
+              />
+
               {/* Cédula */}
-              <Text style={styles.fieldLabel}>Cédula *</Text>
+              <Text style={styles.fieldLabel}>Cédula</Text>
               <TextInput
                 style={styles.fieldInput}
                 placeholder="Ej: 12345678"
@@ -366,9 +428,28 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: theme.colors.background },
 
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: theme.spacing.screen,
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: '#fde8e8',
+    marginHorizontal: theme.spacing.screen,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.error,
   },
   headerKicker: {
     fontSize: theme.typography.sizes.tiny,

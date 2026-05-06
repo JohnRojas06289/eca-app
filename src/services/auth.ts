@@ -15,7 +15,7 @@ interface RegisterPayload {
 }
 
 function normalizeRole(value: unknown): UserRole {
-  if (value === 'admin' || value === 'recycler' || value === 'supervisor' || value === 'citizen') {
+  if (value === 'admin' || value === 'recycler' || value === 'supervisor' || value === 'citizen' || value === 'superadmin') {
     return value;
   }
   return 'citizen';

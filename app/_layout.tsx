@@ -57,15 +57,17 @@ function RootNavigator() {
     }
 
     // Autenticado: redirigir al grupo de su rol si no está ya ahí
-    const roleToGroup: Record<string, '/(citizen)' | '/(recycler)' | '/(admin)' | '/(supervisor)'> = {
+    const roleToGroup: Record<string, string> = {
       citizen:    '/(citizen)',
       recycler:   '/(recycler)',
       admin:      '/(admin)',
       supervisor: '/(supervisor)',
+      superadmin: '/(admin)',
     };
 
     const targetGroup = roleToGroup[user.role];
-    const expectedSegment = `(${user.role})`;
+    // superadmin vive en el grupo (admin)
+    const expectedSegment = user.role === 'superadmin' ? '(admin)' : `(${user.role})`;
 
     if (!targetGroup) return;
 

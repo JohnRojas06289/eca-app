@@ -12,6 +12,7 @@ export class ApiError extends Error {
 
 type RequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
+  token?: string;
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -19,14 +20,16 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError('API no configurada.', 0);
   }
 
+  const { token, ...fetchOptions } = options;
   const endpoint = path.startsWith('/') ? path : `/${path}`;
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
+    ...fetchOptions,
     headers: {
       'Content-Type': 'application/json',
-      ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(fetchOptions.headers ?? {}),
     },
-    body: options.body == null ? undefined : JSON.stringify(options.body),
+    body: fetchOptions.body == null ? undefined : JSON.stringify(fetchOptions.body),
   });
 
   const payload = await response.json().catch(() => null);

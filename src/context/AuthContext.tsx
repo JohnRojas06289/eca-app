@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type UserRole = 'citizen' | 'recycler' | 'admin' | 'supervisor';
+export type UserRole = 'citizen' | 'recycler' | 'admin' | 'supervisor' | 'superadmin';
 
 export interface AuthUser {
   id: string;

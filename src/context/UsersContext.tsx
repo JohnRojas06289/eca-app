@@ -1,11 +1,21 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useAuth } from '@/src/hooks/useAuth';
+import { HAS_API_BASE_URL } from '@/src/config/env';
+import {
+  fetchUsers,
+  createApiUser,
+  updateApiUser,
+  deleteApiUser,
+  type ApiUser,
+} from '@/src/services/users';
 
-export type UserRole = 'recycler' | 'citizen' | 'admin';
+export type UserRole = 'recycler' | 'citizen' | 'admin' | 'supervisor' | 'superadmin';
 export type UserStatus = 'active' | 'inactive' | 'pending';
 
 export interface AppUser {
   id: string;
   name: string;
+  email: string;
   cedula: string;
   role: UserRole;
   status: UserStatus;
@@ -14,57 +24,106 @@ export interface AppUser {
   totalKg?: number;
 }
 
-const INITIAL_USERS: AppUser[] = [
-  { id: '1', name: 'Juan Pérez',       cedula: '12345678', role: 'recycler', status: 'active',   association: 'Asoc. Zipaquirá', joinedAt: 'Ene 2024', totalKg: 1250 },
-  { id: '2', name: 'María González',   cedula: '87654321', role: 'recycler', status: 'pending',  association: 'Asoc. Zipaquirá', joinedAt: 'Mar 2026' },
-  { id: '3', name: 'Carlos Ruiz',      cedula: '23456789', role: 'citizen',  status: 'active',   joinedAt: 'Feb 2025' },
-  { id: '4', name: 'Ana Martínez',     cedula: '34567890', role: 'citizen',  status: 'active',   joinedAt: 'Jun 2025' },
-  { id: '5', name: 'Pedro Sánchez',    cedula: '45678901', role: 'recycler', status: 'inactive', association: 'Asoc. Norte',     joinedAt: 'Oct 2023', totalKg: 320 },
-  { id: '6', name: 'Lucía Fernández',  cedula: '56789012', role: 'admin',    status: 'active',   joinedAt: 'Ene 2023' },
-  { id: '7', name: 'Diego Torres',     cedula: '67890123', role: 'citizen',  status: 'active',   joinedAt: 'Nov 2025' },
-];
-
 export interface CreateUserInput {
   name: string;
+  email: string;
   cedula: string;
   role: UserRole;
   status: UserStatus;
   association?: string;
+  password: string;
+}
+
+export interface UpdateUserInput {
+  name?: string;
+  email?: string;
+  cedula?: string;
+  role?: UserRole;
+  status?: UserStatus;
+  association?: string;
+  password?: string;
 }
 
 interface UsersContextValue {
   users: AppUser[];
-  createUser: (input: CreateUserInput) => AppUser;
-  updateUser: (id: string, patch: Partial<Omit<AppUser, 'id'>>) => void;
-  deleteUser: (id: string) => void;
+  isLoading: boolean;
+  error: string | null;
+  reload: () => Promise<void>;
+  createUser: (input: CreateUserInput) => Promise<AppUser>;
+  updateUser: (id: string, patch: UpdateUserInput) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
   getUserById: (id: string) => AppUser | undefined;
+}
+
+function apiUserToAppUser(u: ApiUser): AppUser {
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    cedula: u.cedula ?? '',
+    role: (u.role as UserRole) ?? 'citizen',
+    status: (u.status as UserStatus) ?? 'active',
+    association: u.association,
+    joinedAt: new Date().toLocaleDateString('es-CO', { month: 'short', year: 'numeric' }),
+  };
 }
 
 const UsersContext = createContext<UsersContextValue | null>(null);
 
 export function UsersProvider({ children }: { children: ReactNode }) {
-  const [users, setUsers] = useState<AppUser[]>(INITIAL_USERS);
+  const { user: authUser } = useAuth();
+  const token = authUser?.token ?? '';
 
-  const createUser = useCallback((input: CreateUserInput): AppUser => {
-    const newUser: AppUser = {
-      ...input,
-      id: Date.now().toString(),
-      joinedAt: new Date().toLocaleDateString('es-CO', { month: 'short', year: 'numeric' }),
-      totalKg: input.role === 'recycler' ? 0 : undefined,
-    };
-    setUsers((prev) => [...prev, newUser]);
-    return newUser;
-  }, []);
+  const [users, setUsers] = useState<AppUser[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const updateUser = useCallback((id: string, patch: Partial<Omit<AppUser, 'id'>>) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, ...patch } : u)),
-    );
-  }, []);
+  const canFetch = HAS_API_BASE_URL && !!token &&
+    ['admin', 'superadmin', 'supervisor'].includes(authUser?.role ?? '');
 
-  const deleteUser = useCallback((id: string) => {
+  const reload = useCallback(async () => {
+    if (!canFetch) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const apiUsers = await fetchUsers(token);
+      setUsers(apiUsers.map(apiUserToAppUser));
+    } catch (err: any) {
+      setError(err?.message ?? 'Error al cargar usuarios.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, canFetch]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const createUser = useCallback(async (input: CreateUserInput): Promise<AppUser> => {
+    const apiUser = await createApiUser(token, {
+      name: input.name,
+      email: input.email,
+      cedula: input.cedula,
+      role: input.role,
+      status: input.status,
+      association: input.association,
+      password: input.password,
+    });
+    const appUser = apiUserToAppUser(apiUser);
+    setUsers((prev) => [appUser, ...prev]);
+    return appUser;
+  }, [token]);
+
+  const updateUser = useCallback(async (id: string, patch: UpdateUserInput): Promise<void> => {
+    const apiUser = await updateApiUser(token, id, patch);
+    const updated = apiUserToAppUser(apiUser);
+    setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...updated } : u)));
+  }, [token]);
+
+  const deleteUser = useCallback(async (id: string): Promise<void> => {
+    await deleteApiUser(token, id);
     setUsers((prev) => prev.filter((u) => u.id !== id));
-  }, []);
+  }, [token]);
 
   const getUserById = useCallback(
     (id: string) => users.find((u) => u.id === id),
@@ -72,7 +131,7 @@ export function UsersProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <UsersContext.Provider value={{ users, createUser, updateUser, deleteUser, getUserById }}>
+    <UsersContext.Provider value={{ users, isLoading, error, reload, createUser, updateUser, deleteUser, getUserById }}>
       {children}
     </UsersContext.Provider>
   );

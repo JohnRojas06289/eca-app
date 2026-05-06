@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { createUser, getUserByEmail } from './db.js';
 import { hashPassword } from './auth.js';
 
-const ALLOWED_ROLES = new Set(['citizen', 'recycler', 'admin', 'supervisor']);
+const ALLOWED_ROLES = new Set(['citizen', 'recycler', 'admin', 'supervisor', 'superadmin']);
 
 function readArg(name) {
   const prefix = `--${name}=`;
@@ -21,7 +21,7 @@ function readValue(name, fallback = '') {
 function normalizeRole(value) {
   const role = String(value ?? '').trim().toLowerCase();
   if (!ALLOWED_ROLES.has(role)) {
-    throw new Error('El rol debe ser citizen, recycler, admin o supervisor.');
+    throw new Error('El rol debe ser citizen, recycler, admin, supervisor o superadmin.');
   }
   return role;
 }
