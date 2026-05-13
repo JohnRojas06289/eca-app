@@ -19,7 +19,7 @@ import { CustomInput } from '@/src/components/CustomInput';
 import { useAuth } from '@/src/hooks/useAuth';
 import type { UserRole } from '@/src/hooks/useAuth';
 import { isWeb } from '@/src/theme/responsive';
-import { API_BASE_URL, ENABLE_DEMO_LOGIN, USE_DEMO_AUTH } from '@/src/config/env';
+import { API_BASE_URL, USE_DEMO_AUTH } from '@/src/config/env';
 import { loginWithApi } from '@/src/services/auth';
 
 export default function LoginScreen() {
@@ -54,39 +54,6 @@ export default function LoginScreen() {
     }
 
     return valid;
-  }
-
-  async function handleQuickLogin(role: UserRole) {
-    if (!ENABLE_DEMO_LOGIN) return;
-
-    const profiles = {
-      admin:      { name: 'Carlos Administrador', email: 'admin@demo.com' },
-      recycler:   { name: 'Juan Reciclador',       email: 'recycler@demo.com' },
-      supervisor: { name: 'Ana Supervisora',        email: 'supervisor@demo.com' },
-      citizen:    { name: 'María Ciudadana',        email: 'citizen@demo.com' },
-      superadmin: { name: 'Super Admin',            email: 'superadmin@demo.com' },
-    };
-    const { name, email } = profiles[role];
-    await signIn({ id: email, name, role, token: 'demo-token', email });
-    router.replace(role === 'superadmin' ? '/(admin)' : `/(${role})` as any);
-  }
-
-  async function handleSuperAdminLogin() {
-    if (!API_BASE_URL) {
-      setLoginError('API_BASE_URL no configurada. Ingresa manualmente con el formulario.');
-      return;
-    }
-    setLoading(true);
-    setLoginError('');
-    try {
-      const user = await loginWithApi({ email: 'superadmin@eca.com', password: 'EcaSuper2024!' });
-      await signIn(user);
-      router.replace('/(admin)');
-    } catch (err: any) {
-      setLoginError(err?.message ?? 'Error desconocido al conectar con el backend.');
-    } finally {
-      setLoading(false);
-    }
   }
 
   async function handleLogin() {
@@ -232,55 +199,6 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {ENABLE_DEMO_LOGIN && (
-            <View style={styles.quickAccessSection}>
-              <Text style={styles.quickAccessLabel}>Acceso rápido demo</Text>
-              <View style={styles.quickAccessGrid}>
-                <TouchableOpacity
-                  style={[styles.quickBtn, { backgroundColor: '#2DC84D' }]}
-                  onPress={() => handleQuickLogin('admin')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="shield-checkmark-outline" size={16} color="#fff" />
-                  <Text style={styles.quickBtnText}>Admin</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.quickBtn, { backgroundColor: '#2980B9' }]}
-                  onPress={() => handleQuickLogin('recycler')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="bicycle-outline" size={16} color="#fff" />
-                  <Text style={styles.quickBtnText}>Reciclador</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.quickBtn, { backgroundColor: '#8E44AD' }]}
-                  onPress={() => handleQuickLogin('supervisor')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="bar-chart-outline" size={16} color="#fff" />
-                  <Text style={styles.quickBtnText}>Supervisor</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.quickBtn, { backgroundColor: '#E67E22' }]}
-                  onPress={() => handleQuickLogin('citizen')}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="person-outline" size={16} color="#fff" />
-                  <Text style={styles.quickBtnText}>Ciudadano</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={styles.superadminBtn}
-                onPress={handleSuperAdminLogin}
-                activeOpacity={0.8}
-                disabled={loading}
-              >
-                <Ionicons name="key-outline" size={16} color="#fff" />
-                <Text style={styles.quickBtnText}>Superadmin (real)</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -409,47 +327,4 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
   },
 
-  // ── Acceso rápido demo ──────────────────────────────────
-  quickAccessSection: {
-    marginTop: theme.spacing.xxxl,
-    alignItems: 'center',
-  },
-  quickAccessLabel: {
-    fontSize: theme.typography.sizes.small,
-    color: theme.colors.textMuted,
-    marginBottom: theme.spacing.md,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  quickAccessGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.md,
-  },
-  quickBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.radius.xl,
-    flexBasis: '47%',
-    flexGrow: 1,
-  },
-  superadminBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.radius.xl,
-    backgroundColor: '#1a1a2e',
-    width: '100%',
-    marginTop: theme.spacing.xs,
-  },
-  quickBtnText: {
-    color: '#fff',
-    fontSize: theme.typography.sizes.small,
-    fontWeight: theme.typography.weights.semibold,
-  },
 });
