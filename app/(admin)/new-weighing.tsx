@@ -111,6 +111,7 @@ export default function AdminNewWeighingScreen() {
   const [cedulaSearch, setCedulaSearch] = useState('');
   const [showSubfamilies, setShowSubfamilies] = useState(false);
   const [showAllRecyclers, setShowAllRecyclers] = useState(false);
+  const [savedSummary, setSavedSummary] = useState<{ operador: string; material: string; kg: string } | null>(null);
 
   const RECYCLER_PREVIEW_COUNT = 3;
 
@@ -216,6 +217,7 @@ export default function AdminNewWeighingScreen() {
     setLoading(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 500));
+      const material = getOperationalMaterialByCode(form.materialCode);
       addRecord({
         macroRoute,
         microRoute: form.microRoute,
@@ -231,16 +233,11 @@ export default function AdminNewWeighingScreen() {
         appliesDcto596: form.appliesTarifa596,
         associatedToEca: form.aforadoToEca,
       });
-      Alert.alert(
-        'Entrada registrada',
-        'El reporte operativo se actualizó automáticamente con esta entrada.',
-        [
-          {
-            text: 'Ver reporte',
-            onPress: () => router.replace('/(admin)/reports' as any),
-          },
-        ],
-      );
+      setSavedSummary({
+        operador: selectedRecycler.name,
+        material: material?.name ?? form.materialCode,
+        kg: effectiveKg.toLocaleString('es-CO', { maximumFractionDigits: 1 }),
+      });
     } finally {
       setLoading(false);
     }
@@ -270,6 +267,58 @@ export default function AdminNewWeighingScreen() {
             NUAP, NUECA, código de operador, frecuencia, rechazo y aforado se llenan automáticamente.
           </Text>
         </View>
+
+        {/* ── Banner de confirmación ────────────────────── */}
+        {savedSummary && (
+          <View style={styles.savedOverlay}>
+            <View style={styles.savedCard}>
+              <View style={styles.savedIconWrap}>
+                <Ionicons name="checkmark-circle" size={48} color={theme.colors.success} />
+              </View>
+              <Text style={styles.savedTitle}>¡Entrada registrada!</Text>
+              <Text style={styles.savedSubtitle}>El registro fue guardado exitosamente.</Text>
+
+              <View style={styles.savedDetails}>
+                <View style={styles.savedDetailRow}>
+                  <Text style={styles.savedDetailLabel}>Operador</Text>
+                  <Text style={styles.savedDetailValue}>{savedSummary.operador}</Text>
+                </View>
+                <View style={styles.savedDetailRow}>
+                  <Text style={styles.savedDetailLabel}>Material</Text>
+                  <Text style={styles.savedDetailValue}>{savedSummary.material}</Text>
+                </View>
+                <View style={styles.savedDetailRow}>
+                  <Text style={styles.savedDetailLabel}>Kg efectivos</Text>
+                  <Text style={styles.savedDetailValue}>{savedSummary.kg} kg</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.savedBtnPrimary}
+                onPress={() => {
+                  setSavedSummary(null);
+                  setForm(createInitialForm(firstRoute?.microRoute ?? '1.1'));
+                  setCedulaSearch('');
+                  setShowSubfamilies(false);
+                  setShowAllRecyclers(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add-outline" size={20} color={theme.colors.textOnPrimary} />
+                <Text style={styles.savedBtnPrimaryText}>Nuevo registro</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.savedBtnSecondary}
+                onPress={() => router.push('/(admin)/reports' as any)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="bar-chart-outline" size={18} color={theme.colors.primary} />
+                <Text style={styles.savedBtnSecondaryText}>Ver reporte</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -1326,5 +1375,95 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.textSecondary,
     marginBottom: theme.spacing.sm,
+  },
+  savedOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 10,
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: theme.spacing.screen,
+  },
+  savedCard: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.xl,
+    borderWidth: 1,
+    borderColor: theme.colors.success,
+    padding: theme.spacing.xl,
+    alignItems: 'center',
+    gap: theme.spacing.md,
+  },
+  savedIconWrap: {
+    marginBottom: theme.spacing.sm,
+  },
+  savedTitle: {
+    fontSize: theme.typography.sizes.h3,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textPrimary,
+    textAlign: 'center',
+  },
+  savedSubtitle: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  savedDetails: {
+    width: '100%',
+    backgroundColor: theme.colors.successLight,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  savedDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  savedDetailLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+  },
+  savedDetailValue: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  savedBtnPrimary: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.md,
+  },
+  savedBtnPrimaryText: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textOnPrimary,
+  },
+  savedBtnSecondary: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.primaryLight,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.md,
+  },
+  savedBtnSecondaryText: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.primary,
   },
 });
