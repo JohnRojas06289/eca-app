@@ -40,6 +40,7 @@ interface WeighingFormState {
   aforadoToEca: boolean;
   materialFamily: OperationalMaterialFamily;
   materialCode: string;
+  subFamily: string;
   quantityKg: string;
   rejectedKg: string;
   appliesTarifa596: boolean;
@@ -55,6 +56,29 @@ function todayLabel() {
   return new Date().toLocaleDateString('es-CO');
 }
 
+/** yyyy-mm-dd → dd/mm/yyyy */
+function toDisplayDate(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+/** dd/mm/yyyy → yyyy-mm-dd (para el input HTML type="date") */
+function toISODate(display: string): string {
+  const parts = display.split('/');
+  if (parts.length !== 3 || parts[2].length !== 4) return '';
+  return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+}
+
+/** yyyy-mm-dd local sin depender de UTC */
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function createInitialForm(firstMicroRoute: string): WeighingFormState {
   const firstMaterial = OPERATIONAL_MATERIAL_CATALOG[0];
   return {
@@ -66,6 +90,7 @@ function createInitialForm(firstMicroRoute: string): WeighingFormState {
     aforadoToEca: true,
     materialFamily: firstMaterial?.family ?? 'Plásticos',
     materialCode: firstMaterial?.code ?? '301',
+    subFamily: '',
     quantityKg: '',
     rejectedKg: '',
     appliesTarifa596: true,
@@ -138,6 +163,7 @@ export default function AdminNewWeighingScreen() {
   const isAforado =
     Number.isFinite(quantityKg) && quantityKg >= settings.aforadoThresholdKg;
   const routeReady = form.microRoute.trim() !== '';
+  const isSelectedToday = toISODate(form.recordDate) === todayISO();
   const materialReady = form.materialFamily.trim() !== '' && form.materialCode.trim() !== '';
   const weighingReady =
     Number.isFinite(quantityKg) &&
@@ -319,14 +345,38 @@ export default function AdminNewWeighingScreen() {
           </View>
 
           {/* ── Fecha ───────────────────────────────────── */}
-          <Text style={styles.sectionTitle}>Fecha de entrada</Text>
-          <TextInput
-            value={form.recordDate}
-            onChangeText={(v) => updateForm('recordDate', v)}
-            placeholder="DD/MM/AAAA"
-            placeholderTextColor={theme.colors.textMuted}
-            style={styles.input}
-          />
+          <View style={styles.dateTitleRow}>
+            <Text style={styles.sectionTitle}>Fecha de entrada</Text>
+            {isSelectedToday && (
+              <View style={styles.todayBadge}>
+                <Text style={styles.todayBadgeText}>Hoy</Text>
+              </View>
+            )}
+          </View>
+          <View style={styles.dateRow}>
+            <TextInput
+              value={form.recordDate}
+              onChangeText={(v) => updateForm('recordDate', v)}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor={theme.colors.textMuted}
+              style={[styles.input, { flex: 1 }]}
+            />
+            {/* Botón calendario — en web abre el picker nativo del navegador */}
+            <View style={styles.calendarBtnWrap}>
+              <Ionicons name="calendar-outline" size={22} color={theme.colors.primary} />
+              {Platform.OS === 'web' && (
+                // @ts-ignore — input HTML nativo, invisible sobre el ícono
+                <input
+                  type="date"
+                  value={toISODate(form.recordDate)}
+                  onChange={(e: any) => {
+                    if (e.target.value) updateForm('recordDate', toDisplayDate(e.target.value));
+                  }}
+                  style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
+                />
+              )}
+            </View>
+          </View>
           <Text style={styles.fieldHint}>(dd/mm/aaaa)</Text>
 
           {/* ── Operador ─────────────────────────────────── */}
@@ -626,6 +676,19 @@ export default function AdminNewWeighingScreen() {
               )}
             </View>
           )}
+
+          {/* ── Sub familia (texto libre, opcional) ──────── */}
+          <View style={styles.optionalLabelRow}>
+            <Text style={styles.fieldLabel}>Sub familia</Text>
+            <Text style={styles.optionalTag}>opcional</Text>
+          </View>
+          <TextInput
+            value={form.subFamily}
+            onChangeText={(v) => updateForm('subFamily', v)}
+            placeholder="Ej: PVC Transparente, Pasta dura..."
+            placeholderTextColor={theme.colors.textMuted}
+            style={styles.input}
+          />
 
           {/* ── Pesaje ───────────────────────────────────── */}
           <Text style={styles.sectionTitle}>Pesaje</Text>
@@ -1202,6 +1265,53 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     marginTop: 4,
     marginBottom: theme.spacing.sm,
+  },
+  dateTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.lg,
+  },
+  todayBadge: {
+    backgroundColor: theme.colors.primaryLight,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+  },
+  todayBadgeText: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.primary,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+  },
+  calendarBtnWrap: {
+    width: 44,
+    height: theme.sizes.inputHeight,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  optionalLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+  },
+  optionalTag: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    fontStyle: 'italic',
   },
   subfamilyPanel: {
     backgroundColor: theme.colors.surfaceAlt,
