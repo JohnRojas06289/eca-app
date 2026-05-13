@@ -86,6 +86,7 @@ export default function UserDetailScreen() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editVisible, setEditVisible] = useState(false);
+  const [savedVisible, setSavedVisible] = useState(false);
   const [editName, setEditName]   = useState(initName);
   const [editEmail, setEditEmail] = useState(initEmail);
   const [editPhone, setEditPhone] = useState(initPhone);
@@ -207,6 +208,8 @@ export default function UserDetailScreen() {
       setRole(nextRole);
       setAssoc(nextAssoc);
       setEditVisible(false);
+      setSavedVisible(true);
+      setTimeout(() => setSavedVisible(false), 3000);
     } catch (error: any) {
       Alert.alert('Error', error?.message ?? 'No se pudo guardar el usuario.');
     } finally {
@@ -264,6 +267,13 @@ export default function UserDetailScreen() {
           <View style={styles.headerPlaceholder} />
         )}
       </View>
+
+      {savedVisible && (
+        <View style={styles.successBanner}>
+          <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.success} />
+          <Text style={styles.successBannerText}>Usuario actualizado correctamente</Text>
+        </View>
+      )}
 
       {!!loadError && (
         <View style={styles.errorBanner}>
@@ -530,6 +540,23 @@ const styles = StyleSheet.create({
   headerPlaceholder: {
     width: 22,
     height: 22,
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.successLight,
+    marginHorizontal: theme.spacing.screen,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+  },
+  successBannerText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.success,
+    fontWeight: theme.typography.weights.medium,
   },
   errorBanner: {
     flexDirection: 'row',

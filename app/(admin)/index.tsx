@@ -112,7 +112,7 @@ export default function AdminHomeScreen() {
               accessibilityLabel="Ver alertas recientes"
             >
               <Ionicons name="notifications-outline" size={22} color={theme.colors.textPrimary} />
-              <View style={styles.notifDot} />
+              {RECENT_ALERTS.length > 0 && <View style={styles.notifDot} />}
             </TouchableOpacity>
             {showMobileMenu && (
               <TouchableOpacity

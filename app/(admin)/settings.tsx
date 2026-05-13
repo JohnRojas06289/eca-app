@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Switch,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,31 +15,49 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { useAuth } from '@/src/hooks/useAuth';
 
+const ROLE_LABELS: Record<string, string> = {
+  admin:      'Administrador',
+  recycler:   'Reutilizador',
+  supervisor: 'Supervisor',
+  citizen:    'Ciudadano',
+  superadmin: 'Superadministrador',
+};
+
+function comingSoon() {
+  Alert.alert('Próximamente', 'Esta funcionalidad estará disponible en una próxima versión.');
+}
+
 interface SettingRow {
   icon: string;
   label: string;
   subtitle?: string;
   onPress: () => void;
   danger?: boolean;
+  disabled?: boolean;
 }
 
-function SettingItem({ icon, label, subtitle, onPress, danger }: SettingRow) {
+function SettingItem({ icon, label, subtitle, onPress, danger, disabled }: SettingRow) {
   return (
-    <TouchableOpacity style={styles.settingRow} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={[styles.settingRow, disabled && styles.settingRowDisabled]}
+      onPress={onPress}
+      activeOpacity={disabled ? 1 : 0.7}
+    >
       <View
         style={[
           styles.settingIconBg,
           danger && styles.settingIconBgDanger,
+          disabled && styles.settingIconBgDisabled,
         ]}
       >
         <Ionicons
           name={icon as any}
           size={18}
-          color={danger ? theme.colors.error : theme.colors.primary}
+          color={danger ? theme.colors.error : disabled ? theme.colors.textMuted : theme.colors.primary}
         />
       </View>
       <View style={styles.settingText}>
-        <Text style={[styles.settingLabel, danger && styles.settingLabelDanger]}>
+        <Text style={[styles.settingLabel, danger && styles.settingLabelDanger, disabled && styles.settingLabelDisabled]}>
           {label}
         </Text>
         {subtitle && (
@@ -46,7 +65,9 @@ function SettingItem({ icon, label, subtitle, onPress, danger }: SettingRow) {
         )}
       </View>
       {!danger && (
-        <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
+        disabled
+          ? <Text style={styles.comingSoonTag}>Próximamente</Text>
+          : <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
       )}
     </TouchableOpacity>
   );
@@ -86,7 +107,7 @@ export default function AdminSettingsScreen() {
           </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{user?.name ?? 'Administrador'}</Text>
-            <Text style={styles.profileRole}>Administrador del Sistema</Text>
+            <Text style={styles.profileRole}>{ROLE_LABELS[user?.role ?? ''] ?? 'Usuario'}</Text>
             <Text style={styles.profileCedula}>
               {user?.email ?? '—'}
             </Text>
@@ -155,7 +176,8 @@ export default function AdminSettingsScreen() {
             icon="list-outline"
             label="Gestionar categorías"
             subtitle="Agrega o desactiva tipos de material"
-            onPress={() => {}}
+            onPress={comingSoon}
+            disabled
           />
         </View>
 
@@ -180,14 +202,16 @@ export default function AdminSettingsScreen() {
             icon="time-outline"
             label="Horarios de servicio"
             subtitle="Días y franjas horarias habilitadas"
-            onPress={() => {}}
+            onPress={comingSoon}
+            disabled
           />
           <View style={styles.cardDivider} />
           <SettingItem
             icon="location-outline"
             label="Zonas de cobertura"
             subtitle="Barrios y sectores atendidos en Zipaquirá"
-            onPress={() => {}}
+            onPress={comingSoon}
+            disabled
           />
         </View>
 
@@ -334,6 +358,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   settingIconBgDanger: { backgroundColor: theme.colors.errorLight },
+  settingIconBgDisabled: { backgroundColor: theme.colors.surfaceAlt },
+  settingRowDisabled: { opacity: 0.6 },
   settingText: { flex: 1 },
   settingLabel: {
     fontSize: theme.typography.sizes.body,
@@ -342,9 +368,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   settingLabelDanger: { color: theme.colors.error },
+  settingLabelDisabled: { color: theme.colors.textMuted },
   settingSubtitle: {
     fontSize: theme.typography.sizes.small,
     color: theme.colors.textSecondary,
+  },
+  comingSoonTag: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    fontWeight: theme.typography.weights.medium,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
 
   // ── Switches ─────────────────────────────────────────────
