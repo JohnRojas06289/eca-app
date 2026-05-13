@@ -34,7 +34,6 @@ import {
 interface WeighingFormState {
   recyclerId: string | null;
   microRoute: string;
-  linkedUsersCount: string;
   userType: OperationalUserType;
   vehicleType: OperationalVehicleType;
   vehiclePlate: string;
@@ -61,7 +60,6 @@ function createInitialForm(firstMicroRoute: string): WeighingFormState {
   return {
     recyclerId: null,
     microRoute: firstMicroRoute,
-    linkedUsersCount: '1',
     userType: 'residencial',
     vehicleType: 'automotor',
     vehiclePlate: '',
@@ -87,6 +85,9 @@ export default function AdminNewWeighingScreen() {
   const [loading, setLoading] = useState(false);
   const [cedulaSearch, setCedulaSearch] = useState('');
   const [showSubfamilies, setShowSubfamilies] = useState(false);
+  const [showAllRecyclers, setShowAllRecyclers] = useState(false);
+
+  const RECYCLER_PREVIEW_COUNT = 3;
 
   const recyclers = useMemo(
     () => users.filter((user) => user.role === 'recycler'),
@@ -125,7 +126,6 @@ export default function AdminNewWeighingScreen() {
   const currentMaterialChildren = getMaterialChildren(effectiveParentCode);
   const currentParentMaterial = getOperationalMaterialByCode(effectiveParentCode);
 
-  const linkedUsersCountValue = Number(form.linkedUsersCount.trim());
   const quantityKg = parseDecimalField(form.quantityKg);
   const rejectedKg = form.rejectedKg.trim() === '' ? 0 : parseDecimalField(form.rejectedKg);
   const effectiveKg =
@@ -137,10 +137,7 @@ export default function AdminNewWeighingScreen() {
     : 'OP-000';
   const isAforado =
     Number.isFinite(quantityKg) && quantityKg >= settings.aforadoThresholdKg;
-  const routeReady =
-    form.microRoute.trim() !== '' &&
-    Number.isFinite(linkedUsersCountValue) &&
-    linkedUsersCountValue > 0;
+  const routeReady = form.microRoute.trim() !== '';
   const materialReady = form.materialFamily.trim() !== '' && form.materialCode.trim() !== '';
   const weighingReady =
     Number.isFinite(quantityKg) &&
@@ -185,11 +182,6 @@ export default function AdminNewWeighingScreen() {
       Alert.alert('Falta operador', 'Selecciona el reciclador que registrará la entrada.');
       return;
     }
-    const linkedUsersCount = Number(form.linkedUsersCount.trim());
-    if (!Number.isFinite(linkedUsersCount) || linkedUsersCount <= 0) {
-      Alert.alert('Usuarios vinculados', 'Ingresa una cantidad válida de usuarios vinculados.');
-      return;
-    }
     if (!canSubmit) {
       Alert.alert('Formulario incompleto', 'Completa los campos obligatorios.');
       return;
@@ -201,7 +193,7 @@ export default function AdminNewWeighingScreen() {
       addRecord({
         macroRoute,
         microRoute: form.microRoute,
-        linkedUsersCount: Math.round(linkedUsersCount),
+        linkedUsersCount: 1,
         userType: form.userType,
         operatorName: selectedRecycler.name,
         operatorIdentification: selectedRecycler.cedula,
@@ -372,39 +364,72 @@ export default function AdminNewWeighingScreen() {
           )}
 
           <View style={styles.recyclerList}>
-            {filteredRecyclers.map((recycler) => {
-              const selected = recycler.id === form.recyclerId;
-              const last3 = String(recycler.cedula ?? '').replace(/\D/g, '').slice(-3).padStart(3, '0');
+            {(() => {
+              const isSearching = cedulaSearch.trim().length > 0;
+              const visible =
+                isSearching || showAllRecyclers
+                  ? filteredRecyclers
+                  : filteredRecyclers.slice(0, RECYCLER_PREVIEW_COUNT);
+              const hiddenCount = filteredRecyclers.length - RECYCLER_PREVIEW_COUNT;
+
               return (
-                <TouchableOpacity
-                  key={recycler.id}
-                  style={[styles.recyclerCard, selected && styles.recyclerCardSelected]}
-                  onPress={() => updateForm('recyclerId', recycler.id)}
-                  activeOpacity={0.85}
-                >
-                  <View style={[styles.recyclerAvatar, selected && styles.recyclerAvatarSelected]}>
-                    <Text style={[styles.recyclerInitial, selected && styles.recyclerInitialSelected]}>
-                      {recycler.name[0]}
-                    </Text>
-                  </View>
-                  <View style={styles.recyclerInfo}>
-                    <Text style={[styles.recyclerName, selected && styles.recyclerNameSelected]}>
-                      {recycler.name}
-                    </Text>
-                    <Text style={styles.recyclerMeta}>
-                      ...{last3}
-                      {recycler.association ? ` · ${recycler.association}` : ''}
-                    </Text>
-                  </View>
-                  {selected && (
-                    <Ionicons name="checkmark-circle" size={22} color={theme.colors.primary} />
+                <>
+                  {visible.map((recycler) => {
+                    const selected = recycler.id === form.recyclerId;
+                    const last3 = String(recycler.cedula ?? '').replace(/\D/g, '').slice(-3).padStart(3, '0');
+                    return (
+                      <TouchableOpacity
+                        key={recycler.id}
+                        style={[styles.recyclerCard, selected && styles.recyclerCardSelected]}
+                        onPress={() => updateForm('recyclerId', recycler.id)}
+                        activeOpacity={0.85}
+                      >
+                        <View style={[styles.recyclerAvatar, selected && styles.recyclerAvatarSelected]}>
+                          <Text style={[styles.recyclerInitial, selected && styles.recyclerInitialSelected]}>
+                            {recycler.name[0]}
+                          </Text>
+                        </View>
+                        <View style={styles.recyclerInfo}>
+                          <Text style={[styles.recyclerName, selected && styles.recyclerNameSelected]}>
+                            {recycler.name}
+                          </Text>
+                          <Text style={styles.recyclerMeta}>
+                            ...{last3}
+                            {recycler.association ? ` · ${recycler.association}` : ''}
+                          </Text>
+                        </View>
+                        {selected && (
+                          <Ionicons name="checkmark-circle" size={22} color={theme.colors.primary} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {filteredRecyclers.length === 0 && (
+                    <Text style={styles.emptyHint}>Sin resultados para "{cedulaSearch}"</Text>
                   )}
-                </TouchableOpacity>
+
+                  {!isSearching && hiddenCount > 0 && (
+                    <TouchableOpacity
+                      style={styles.showMoreBtn}
+                      onPress={() => setShowAllRecyclers((v) => !v)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={showAllRecyclers ? 'chevron-up-outline' : 'chevron-down-outline'}
+                        size={16}
+                        color={theme.colors.primary}
+                      />
+                      <Text style={styles.showMoreText}>
+                        {showAllRecyclers
+                          ? 'Ver menos'
+                          : `Ver ${hiddenCount} operador${hiddenCount !== 1 ? 'es' : ''} más`}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               );
-            })}
-            {filteredRecyclers.length === 0 && (
-              <Text style={styles.emptyHint}>Sin resultados para "{cedulaSearch}"</Text>
-            )}
+            })()}
           </View>
 
           {/* ── Ruta ─────────────────────────────────────── */}
@@ -449,38 +474,23 @@ export default function AdminNewWeighingScreen() {
             </View>
           </View>
 
-          <View style={styles.inputGrid}>
-            <View style={styles.inputGridItem}>
-              <Text style={styles.fieldLabel}>Usuarios vinculados</Text>
-              <TextInput
-                value={form.linkedUsersCount}
-                onChangeText={(value) => updateForm('linkedUsersCount', value.replace(/\D/g, ''))}
-                keyboardType="number-pad"
-                placeholder="1"
-                placeholderTextColor={theme.colors.textMuted}
-                style={styles.input}
-              />
-            </View>
-            <View style={styles.inputGridItem}>
-              <Text style={styles.fieldLabel}>Tipo de usuario</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-                {OPERATIONAL_USER_TYPES.map((type) => {
-                  const selected = type.value === form.userType;
-                  return (
-                    <TouchableOpacity
-                      key={type.value}
-                      style={[styles.chip, selected && styles.chipActive]}
-                      onPress={() => updateForm('userType', type.value)}
-                    >
-                      <Text style={[styles.chipText, selected && styles.chipTextActive]}>
-                        {type.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          </View>
+          <Text style={styles.fieldLabel}>Tipo de usuario</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            {OPERATIONAL_USER_TYPES.map((type) => {
+              const selected = type.value === form.userType;
+              return (
+                <TouchableOpacity
+                  key={type.value}
+                  style={[styles.chip, selected && styles.chipActive]}
+                  onPress={() => updateForm('userType', type.value)}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
 
           <Text style={styles.fieldLabel}>Aforado a la ECA</Text>
           <View style={styles.chipRow}>
@@ -1030,6 +1040,22 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     textAlign: 'center',
     paddingVertical: theme.spacing.md,
+  },
+  showMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
+  },
+  showMoreText: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.primary,
   },
   routeList: {
     gap: theme.spacing.xs,
