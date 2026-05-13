@@ -78,7 +78,7 @@ const EMPTY_FORM: RouteForm = {
 export default function AdminRoutesScreen() {
   const router = useRouter();
   const { routeConfigs, setRouteConfigs } = useOperationalReports();
-  const [activeTab, setActiveTab] = useState<'general' | 'operational'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'operational'>('operational');
   const [search, setSearch] = useState('');
   const [routes, setRoutes] = useState<RouteItem[]>(INITIAL_ROUTES);
   const [modalVisible, setModalVisible] = useState(false);
