@@ -380,7 +380,7 @@ export default function AdminNewWeighingScreen() {
           <Text style={styles.fieldHint}>(dd/mm/aaaa)</Text>
 
           {/* ── Operador ─────────────────────────────────── */}
-          <Text style={styles.sectionTitle}>Operador</Text>
+          <Text style={styles.sectionTitle}>Operador *</Text>
           <View style={styles.searchBox}>
             <Ionicons name="search-outline" size={16} color={theme.colors.textMuted} />
             <TextInput
@@ -694,7 +694,7 @@ export default function AdminNewWeighingScreen() {
           <Text style={styles.sectionTitle}>Pesaje</Text>
           <View style={styles.inputGrid}>
             <View style={styles.inputGridItem}>
-              <Text style={styles.fieldLabel}>Cantidad kg</Text>
+              <Text style={styles.fieldLabel}>Cantidad kg *</Text>
               <TextInput
                 value={form.quantityKg}
                 onChangeText={(value) => updateForm('quantityKg', value.replace(/[^0-9.,]/g, ''))}

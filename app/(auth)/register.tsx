@@ -173,7 +173,7 @@ export default function RegisterScreen() {
 
           {/* ── Campos del formulario ──────────────────────── */}
           <CustomInput
-            label="Nombre Completo"
+            label="Nombre Completo *"
             leftIcon="person-outline"
             placeholder="Ej: Juan Pérez"
             value={name}
@@ -182,7 +182,7 @@ export default function RegisterScreen() {
             error={errors.name}
           />
           <CustomInput
-            label="Correo Electrónico"
+            label="Correo Electrónico *"
             leftIcon="mail-outline"
             placeholder="correo@ejemplo.com"
             value={email}
@@ -192,7 +192,7 @@ export default function RegisterScreen() {
             error={errors.email}
           />
           <CustomInput
-            label="Número de Teléfono"
+            label="Número de Teléfono *"
             leftIcon="call-outline"
             placeholder="300 123 4567"
             value={phone}
@@ -201,7 +201,7 @@ export default function RegisterScreen() {
             error={errors.phone}
           />
           <CustomInput
-            label="Contraseña"
+            label="Contraseña *"
             leftIcon="lock-closed-outline"
             placeholder="Mínimo 8 caracteres"
             value={password}
@@ -210,17 +210,21 @@ export default function RegisterScreen() {
             error={errors.password}
           />
           <CustomInput
-            label="Confirmar Contraseña"
+            label="Confirmar Contraseña *"
             leftIcon="lock-closed-outline"
             placeholder="Repite tu contraseña"
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             isPassword
-            error={errors.confirmPassword}
+            error={
+              confirmPassword.length > 0 && password !== confirmPassword
+                ? 'Las contraseñas no coinciden'
+                : errors.confirmPassword
+            }
           />
 
           {/* ── Selección de Rol ───────────────────────────── */}
-          <Text style={styles.roleLabel}>Selecciona tu Rol</Text>
+          <Text style={styles.roleLabel}>Selecciona tu Rol *</Text>
           {errors.role !== '' && (
             <Text style={styles.roleError}>{errors.role}</Text>
           )}

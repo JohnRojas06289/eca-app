@@ -23,6 +23,14 @@ interface MobileMenuProps {
   links: NavLink[];
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  admin:      'Administrador',
+  recycler:   'Reutilizador',
+  supervisor: 'Supervisor',
+  citizen:    'Ciudadano',
+  superadmin: 'Superadministrador',
+};
+
 export function MobileMenu({ links }: MobileMenuProps) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -70,7 +78,7 @@ export function MobileMenu({ links }: MobileMenuProps) {
                   <Text style={styles.userName} numberOfLines={1}>
                     {user?.name ?? 'Usuario'}
                   </Text>
-                  <Text style={styles.userRole}>Reciclador</Text>
+                  <Text style={styles.userRole}>{ROLE_LABELS[user?.role ?? ''] ?? 'Usuario'}</Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => setOpen(false)}

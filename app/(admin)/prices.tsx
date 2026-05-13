@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -94,6 +93,7 @@ export default function AdminPricesScreen() {
     Object.fromEntries(INITIAL_PRICES.map((m) => [m.code, String(m.pricePerKg)])),
   );
   const [updatedAt, setUpdatedAt] = useState(new Date());
+  const [savedVisible, setSavedVisible] = useState(false);
 
   const hasChanges = useMemo(
     () => items.some((m) => Number(drafts[m.code] ?? m.pricePerKg) !== m.pricePerKg),
@@ -111,7 +111,8 @@ export default function AdminPricesScreen() {
 
     setItems(next);
     setUpdatedAt(new Date());
-    Alert.alert('Listo', 'Precios actualizados correctamente.');
+    setSavedVisible(true);
+    setTimeout(() => setSavedVisible(false), 3000);
   }
 
   function onPressSave() {
@@ -173,6 +174,12 @@ export default function AdminPricesScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {savedVisible && (
+          <View style={styles.successBanner}>
+            <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.success} />
+            <Text style={styles.successBannerText}>Precios actualizados correctamente</Text>
+          </View>
+        )}
         <TouchableOpacity
           style={[styles.saveBtn, !hasChanges && styles.saveBtnDisabled]}
           onPress={onPressSave}
@@ -305,5 +312,20 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.body,
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.textOnPrimary,
+  },
+  successBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.successLight,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+  },
+  successBannerText: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.success,
+    fontWeight: theme.typography.weights.medium,
   },
 });
