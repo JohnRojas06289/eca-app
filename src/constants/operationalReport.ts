@@ -87,8 +87,8 @@ export interface OperationalReportRecord {
 
 export const DEFAULT_OPERATIONAL_REPORT_SETTINGS: OperationalReportSettings = {
   reportName: 'Reporte operativo',
-  nuap: 'NUAP-001',
-  nueca: 'NUECA-001',
+  nuap: '4213525899',
+  nueca: '4213525899',
   aforadoThresholdKg: 50,
 };
 

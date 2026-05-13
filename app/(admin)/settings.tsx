@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useOperationalReports } from '@/src/context/OperationalReportsContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -83,6 +84,7 @@ const STORAGE_KEYS = {
 export default function AdminSettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { settings } = useOperationalReports();
 
   const [autoValidate,    setAutoValidate]  = useState(false);
   const [maintenanceMode, setMaintenance]   = useState(false);
@@ -191,6 +193,30 @@ export default function AdminSettingsScreen() {
               trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
               thumbColor={theme.colors.surface}
             />
+          </View>
+        </View>
+
+        {/* ── Identificadores de operación ─────────────────── */}
+        <Text style={styles.sectionTitle}>Identificadores de operación</Text>
+        <View style={styles.card}>
+          <View style={styles.infoRow}>
+            <View style={styles.settingIconBg}>
+              <Ionicons name="barcode-outline" size={18} color={theme.colors.primary} />
+            </View>
+            <View style={styles.settingText}>
+              <Text style={styles.infoLabel}>Código NUAP</Text>
+              <Text style={styles.infoValue}>{settings.nuap}</Text>
+            </View>
+          </View>
+          <View style={styles.cardDivider} />
+          <View style={styles.infoRow}>
+            <View style={styles.settingIconBg}>
+              <Ionicons name="business-outline" size={18} color={theme.colors.primary} />
+            </View>
+            <View style={styles.settingText}>
+              <Text style={styles.infoLabel}>Código NUECA</Text>
+              <Text style={styles.infoValue}>{settings.nueca}</Text>
+            </View>
           </View>
         </View>
 
@@ -404,6 +430,23 @@ const styles = StyleSheet.create({
   settingSubtitle: {
     fontSize: theme.typography.sizes.small,
     color: theme.colors.textSecondary,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  infoLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   comingSoonTag: {
     fontSize: theme.typography.sizes.tiny,
