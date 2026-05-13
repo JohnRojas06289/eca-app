@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
 import { useAuth } from '@/src/hooks/useAuth';
-import { USE_DEMO_AUTH } from '@/src/config/env';
+import { API_BASE_URL, USE_DEMO_AUTH } from '@/src/config/env';
 
 /**
  * Pantalla de éxito. Maneja dos variantes via search params:
@@ -23,7 +23,7 @@ export default function SuccessScreen() {
   const { type } = useLocalSearchParams<{ type: 'account' | 'password' }>();
 
   const isPasswordReset = type === 'password';
-  const isDemoRegisterFlow = USE_DEMO_AUTH;
+  const isDemoRegisterFlow = USE_DEMO_AUTH && API_BASE_URL.length === 0;
 
   async function handleGoToDashboard() {
     if (!isDemoRegisterFlow) {

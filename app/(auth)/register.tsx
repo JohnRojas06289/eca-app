@@ -35,6 +35,7 @@ interface FormErrors {
 
 export default function RegisterScreen() {
   const router = useRouter();
+  const shouldUseApiAuth = API_BASE_URL.length > 0;
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -104,19 +105,21 @@ export default function RegisterScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      if (API_BASE_URL && !USE_DEMO_AUTH && role) {
+      if (shouldUseApiAuth && role) {
         await registerWithApi({ name, email, phone, role, password });
         router.push({
           pathname: '/(auth)/success',
           params: { type: 'account' },
         });
-      } else {
+      } else if (USE_DEMO_AUTH) {
         // Modo demo controlado por env: permite revisar el frontend sin backend.
         await new Promise((r) => setTimeout(r, 800));
         router.push({
           pathname: '/(auth)/verify-code',
           params: { flow: 'register', phone: phone.slice(-4) },
         });
+      } else {
+        throw new Error('El servicio de autenticación no está configurado.');
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No fue posible crear la cuenta.';
