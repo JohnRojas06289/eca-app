@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { theme } from '@/src/theme/theme';
 import { StatCard } from '@/src/components/StatCard';
 import { CustomButton } from '@/src/components/CustomButton';
 import { useAuth } from '@/src/hooks/useAuth';
+import { useOperationalReports } from '@/src/context/OperationalReportsContext';
 import { formatDateTime, formatShortDateTime } from '@/src/utils/date';
 
 interface AlertRow {
@@ -78,14 +79,36 @@ const DRAWER_ACTIONS = [
   { label: 'Ajustes', icon: 'settings-outline', route: '/(admin)/settings' },
 ];
 
+const MONTH_NAMES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+function todayPrefix(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function AdminHomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { records, routeConfigs } = useOperationalReports();
   const [menuOpen, setMenuOpen] = useState(false);
   const { width } = useWindowDimensions();
 
   const firstName = user?.name?.split(' ')[0] ?? 'Admin';
   const showMobileMenu = Platform.OS !== 'web' || width < 900;
+
+  const stats = useMemo(() => {
+    const today = todayPrefix();
+    const totalKg = records.reduce((sum, r) => sum + (r.effectiveKg ?? 0), 0);
+    const todayRecords = records.filter((r) => r.createdAt.startsWith(today));
+    const currentMonth = MONTH_NAMES[new Date().getMonth()];
+    return {
+      totalKg: totalKg.toLocaleString('es-CO', { maximumFractionDigits: 1 }),
+      routeCount: String(routeConfigs.length),
+      todayCount: String(todayRecords.length),
+      todayKg: todayRecords.reduce((sum, r) => sum + (r.effectiveKg ?? 0), 0),
+      currentMonth,
+    };
+  }, [records, routeConfigs]);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -131,9 +154,9 @@ export default function AdminHomeScreen() {
         <StatCard
           variant="hero"
           label="MATERIAL RECUPERADO"
-          value="12.450"
+          value={stats.totalKg}
           unit="kg"
-          trend="Acumulado abril"
+          trend={`Acumulado ${stats.currentMonth}`}
           trendDirection="up"
           style={styles.heroCard}
         />
@@ -142,7 +165,7 @@ export default function AdminHomeScreen() {
           <StatCard
             variant="compact"
             label="Rutas activas"
-            value="6"
+            value={stats.routeCount}
             icon="map-outline"
             iconColor={theme.colors.info}
             iconBgColor={theme.colors.infoLight}
@@ -151,7 +174,7 @@ export default function AdminHomeScreen() {
           <StatCard
             variant="compact"
             label="Pesajes hoy"
-            value="38"
+            value={stats.todayCount}
             icon="scale-outline"
             iconColor={theme.colors.primary}
             style={styles.statCardHalf}
@@ -202,15 +225,15 @@ export default function AdminHomeScreen() {
           <Text style={styles.operationsTitle}>Operación de hoy</Text>
           <View style={styles.operationsRow}>
             <Ionicons name="checkmark-done-outline" size={16} color={theme.colors.success} />
-            <Text style={styles.operationsText}>35 pesajes ya confirmados.</Text>
-          </View>
-          <View style={styles.operationsRow}>
-            <Ionicons name="time-outline" size={16} color={theme.colors.warning} />
-            <Text style={styles.operationsText}>3 pesajes requieren validación inmediata.</Text>
+            <Text style={styles.operationsText}>
+              {stats.todayCount === '0'
+                ? 'Sin pesajes registrados hoy.'
+                : `${stats.todayCount} pesaje${stats.todayCount !== '1' ? 's' : ''} registrado${stats.todayCount !== '1' ? 's' : ''} hoy (${stats.todayKg.toLocaleString('es-CO', { maximumFractionDigits: 1 })} kg).`}
+            </Text>
           </View>
           <View style={styles.operationsRow}>
             <Ionicons name="car-outline" size={16} color={theme.colors.info} />
-            <Text style={styles.operationsText}>6 rutas están en ejecución.</Text>
+            <Text style={styles.operationsText}>{stats.routeCount} ruta{stats.routeCount !== '1' ? 's' : ''} configurada{stats.routeCount !== '1' ? 's' : ''}.</Text>
           </View>
 
           <View style={styles.operationsActions}>

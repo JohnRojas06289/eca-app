@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { useAuth } from '@/src/hooks/useAuth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ROLE_LABELS: Record<string, string> = {
   admin:      'Administrador',
@@ -73,13 +74,44 @@ function SettingItem({ icon, label, subtitle, onPress, danger, disabled }: Setti
   );
 }
 
+const STORAGE_KEYS = {
+  autoValidate:    'settings:auto_validate',
+  maintenanceMode: 'settings:maintenance_mode',
+  emailReports:    'settings:email_reports',
+};
+
 export default function AdminSettingsScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
 
-  const [autoValidate,  setAutoValidate]  = useState(false);
-  const [maintenanceMode, setMaintenance] = useState(false);
-  const [emailReports,  setEmailReports]  = useState(true);
+  const [autoValidate,    setAutoValidate]  = useState(false);
+  const [maintenanceMode, setMaintenance]   = useState(false);
+  const [emailReports,    setEmailReports]  = useState(true);
+
+  // Cargar valores persistidos al montar
+  useEffect(() => {
+    AsyncStorage.multiGet(Object.values(STORAGE_KEYS)).then((pairs) => {
+      const map = Object.fromEntries(pairs.map(([k, v]) => [k, v]));
+      if (map[STORAGE_KEYS.autoValidate]    !== null) setAutoValidate(map[STORAGE_KEYS.autoValidate]    === 'true');
+      if (map[STORAGE_KEYS.maintenanceMode] !== null) setMaintenance(map[STORAGE_KEYS.maintenanceMode]  === 'true');
+      if (map[STORAGE_KEYS.emailReports]    !== null) setEmailReports(map[STORAGE_KEYS.emailReports]    === 'true');
+    });
+  }, []);
+
+  function toggleAutoValidate(val: boolean) {
+    setAutoValidate(val);
+    AsyncStorage.setItem(STORAGE_KEYS.autoValidate, String(val));
+  }
+
+  function toggleMaintenance(val: boolean) {
+    setMaintenance(val);
+    AsyncStorage.setItem(STORAGE_KEYS.maintenanceMode, String(val));
+  }
+
+  function toggleEmailReports(val: boolean) {
+    setEmailReports(val);
+    AsyncStorage.setItem(STORAGE_KEYS.emailReports, String(val));
+  }
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -125,7 +157,7 @@ export default function AdminSettingsScreen() {
             </View>
             <Switch
               value={autoValidate}
-              onValueChange={setAutoValidate}
+              onValueChange={toggleAutoValidate}
               trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
               thumbColor={theme.colors.surface}
             />
@@ -140,7 +172,7 @@ export default function AdminSettingsScreen() {
             </View>
             <Switch
               value={maintenanceMode}
-              onValueChange={setMaintenance}
+              onValueChange={toggleMaintenance}
               trackColor={{ false: theme.colors.border, true: theme.colors.warning }}
               thumbColor={theme.colors.surface}
             />
@@ -155,7 +187,7 @@ export default function AdminSettingsScreen() {
             </View>
             <Switch
               value={emailReports}
-              onValueChange={setEmailReports}
+              onValueChange={toggleEmailReports}
               trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
               thumbColor={theme.colors.surface}
             />
