@@ -89,17 +89,46 @@ export default function AdminRoutesScreen() {
   // Operational micro routes state
   const [opModalVisible, setOpModalVisible] = useState(false);
   const [opEditingKey, setOpEditingKey] = useState<string | null>(null);
-  const [opForm, setOpForm] = useState({ macroRoute: '', microRoute: '', frequencyDays: [] as OperationalWeekday[] });
+  const EMPTY_OP_FORM = {
+    macroRoute: '',
+    microRoute: '',
+    tipoMicroruta: '',
+    fechaEntradaOperacion: '',
+    direccionPredioInicio: '',
+    horaInicioMicroruta: '',
+    direccionPredioFin: '',
+    horaFinalizacion: '',
+    distanciaPavimentadaKm: '',
+    distanciaNosPavimentadaKm: '',
+    frecuenciaVecesSemana: '',
+    frequencyDays: [] as OperationalWeekday[],
+    estacionTransferencia: '',
+  };
+  const [opForm, setOpForm] = useState(EMPTY_OP_FORM);
 
   function openOpCreate() {
     setOpEditingKey(null);
-    setOpForm({ macroRoute: '', microRoute: '', frequencyDays: [] });
+    setOpForm(EMPTY_OP_FORM);
     setOpModalVisible(true);
   }
 
   function openOpEdit(route: typeof routeConfigs[0]) {
     setOpEditingKey(route.microRoute);
-    setOpForm({ macroRoute: route.macroRoute, microRoute: route.microRoute, frequencyDays: [...route.frequencyDays] });
+    setOpForm({
+      macroRoute: route.macroRoute,
+      microRoute: route.microRoute,
+      tipoMicroruta: route.tipoMicroruta ?? '',
+      fechaEntradaOperacion: route.fechaEntradaOperacion ?? '',
+      direccionPredioInicio: route.direccionPredioInicio ?? '',
+      horaInicioMicroruta: route.horaInicioMicroruta ?? '',
+      direccionPredioFin: route.direccionPredioFin ?? '',
+      horaFinalizacion: route.horaFinalizacion ?? '',
+      distanciaPavimentadaKm: route.distanciaPavimentadaKm ?? '',
+      distanciaNosPavimentadaKm: route.distanciaNosPavimentadaKm ?? '',
+      frecuenciaVecesSemana: route.frecuenciaVecesSemana ?? '',
+      frequencyDays: [...route.frequencyDays],
+      estacionTransferencia: route.estacionTransferencia ?? '',
+    });
     setOpModalVisible(true);
   }
 
@@ -126,19 +155,29 @@ export default function AdminRoutesScreen() {
       Alert.alert('Duplicada', `La microruta "${microRoute}" ya existe.`);
       return;
     }
+    const newConfig = {
+      macroRoute,
+      microRoute,
+      tipoMicroruta: opForm.tipoMicroruta.trim() || undefined,
+      fechaEntradaOperacion: opForm.fechaEntradaOperacion.trim() || undefined,
+      direccionPredioInicio: opForm.direccionPredioInicio.trim() || undefined,
+      horaInicioMicroruta: opForm.horaInicioMicroruta.trim() || undefined,
+      direccionPredioFin: opForm.direccionPredioFin.trim() || undefined,
+      horaFinalizacion: opForm.horaFinalizacion.trim() || undefined,
+      distanciaPavimentadaKm: opForm.distanciaPavimentadaKm.trim() || undefined,
+      distanciaNosPavimentadaKm: opForm.distanciaNosPavimentadaKm.trim() || undefined,
+      frecuenciaVecesSemana: opForm.frecuenciaVecesSemana.trim() || undefined,
+      frequencyDays: opForm.frequencyDays,
+      estacionTransferencia: opForm.estacionTransferencia.trim() || undefined,
+      onlyAssociatedToEca: true,
+    };
+
     if (opEditingKey) {
       setRouteConfigs((prev) =>
-        prev.map((r) =>
-          r.microRoute === opEditingKey
-            ? { macroRoute, microRoute, frequencyDays: opForm.frequencyDays, onlyAssociatedToEca: true }
-            : r,
-        ),
+        prev.map((r) => r.microRoute === opEditingKey ? newConfig : r),
       );
     } else {
-      setRouteConfigs((prev) => [
-        ...prev,
-        { macroRoute, microRoute, frequencyDays: opForm.frequencyDays, onlyAssociatedToEca: true },
-      ]);
+      setRouteConfigs((prev) => [...prev, newConfig]);
     }
     setOpModalVisible(false);
   }
@@ -419,12 +458,14 @@ export default function AdminRoutesScreen() {
           ) : (
             routeConfigs.map((rc) => (
               <View key={rc.microRoute} style={styles.opCard}>
+                {/* Cabecera */}
                 <View style={styles.opCardHeader}>
                   <View style={styles.opCardInfo}>
                     <Text style={styles.opMacroLabel}>Macroruta</Text>
                     <Text style={styles.opMacroValue}>{rc.macroRoute}</Text>
                     <Text style={styles.opMicroLabel}>Microruta</Text>
                     <Text style={styles.opMicroValue}>{rc.microRoute}</Text>
+                    {rc.tipoMicroruta ? <Text style={styles.opMetaText}>{rc.tipoMicroruta}</Text> : null}
                   </View>
                   <View style={styles.actionsRow}>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => openOpEdit(rc)}>
@@ -437,13 +478,53 @@ export default function AdminRoutesScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-                <Text style={styles.opFreqLabel}>Frecuencia</Text>
+
+                {/* Recorrido */}
+                {(rc.direccionPredioInicio || rc.horaInicioMicroruta) && (
+                  <View style={styles.opDetailRow}>
+                    <Ionicons name="navigate-outline" size={13} color={theme.colors.textMuted} />
+                    <Text style={styles.opDetailText}>
+                      {rc.direccionPredioInicio ?? '—'}
+                      {rc.horaInicioMicroruta ? ` · ${rc.horaInicioMicroruta}` : ''}
+                      {rc.direccionPredioFin ? ` → ${rc.direccionPredioFin}` : ''}
+                      {rc.horaFinalizacion ? ` · ${rc.horaFinalizacion}` : ''}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Distancias */}
+                {(rc.distanciaPavimentadaKm || rc.distanciaNosPavimentadaKm) && (
+                  <View style={styles.opDetailRow}>
+                    <Ionicons name="road-outline" size={13} color={theme.colors.textMuted} />
+                    <Text style={styles.opDetailText}>
+                      Pav: {rc.distanciaPavimentadaKm ?? '0'} km · No pav: {rc.distanciaNosPavimentadaKm ?? '0'} km
+                    </Text>
+                  </View>
+                )}
+
+                {/* Estación */}
+                {rc.estacionTransferencia && (
+                  <View style={styles.opDetailRow}>
+                    <Ionicons name="business-outline" size={13} color={theme.colors.textMuted} />
+                    <Text style={styles.opDetailText}>{rc.estacionTransferencia}</Text>
+                  </View>
+                )}
+
+                {/* Frecuencia */}
+                <View style={styles.opFreqRow}>
+                  <Text style={styles.opFreqLabel}>
+                    Frecuencia{rc.frecuenciaVecesSemana ? ` · ${rc.frecuenciaVecesSemana}x/sem` : ''}
+                  </Text>
+                </View>
                 <View style={styles.opDaysRow}>
-                  {ALL_WEEKDAYS.map((day) => (
+                  {ALL_WEEKDAYS.map((day, idx) => (
                     <View
                       key={day}
                       style={[styles.opDayChip, rc.frequencyDays.includes(day) && styles.opDayChipActive]}
                     >
+                      <Text style={[styles.opDayNumText, rc.frequencyDays.includes(day) && styles.opDayTextActive]}>
+                        {idx + 1}
+                      </Text>
                       <Text style={[styles.opDayText, rc.frequencyDays.includes(day) && styles.opDayTextActive]}>
                         {day.slice(0, 2)}
                       </Text>
@@ -608,38 +689,154 @@ export default function AdminRoutesScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.fieldLabel}>Macroruta *</Text>
-              <TextInput
-                style={styles.fieldInput}
-                value={opForm.macroRoute}
-                onChangeText={(v) => setOpForm((f) => ({ ...f, macroRoute: v }))}
-                placeholder="Ej: Zona Norte"
-                placeholderTextColor={theme.colors.textMuted}
-              />
 
-              <Text style={styles.fieldLabel}>Microruta *</Text>
-              <TextInput
-                style={styles.fieldInput}
-                value={opForm.microRoute}
-                onChangeText={(v) => setOpForm((f) => ({ ...f, microRoute: v }))}
-                placeholder="Ej: MR-01"
-                placeholderTextColor={theme.colors.textMuted}
-                editable={!opEditingKey}
-              />
+              {/* ── Identificación ───────────────────────── */}
+              <View style={styles.opFormSection}>
+                <Text style={styles.opFormSectionTitle}>Identificación</Text>
+                <Text style={styles.fieldLabel}>Macroruta *</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.macroRoute}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, macroRoute: v }))}
+                  placeholder="Ej: 1"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+                <Text style={styles.fieldLabel}>Microruta *</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.microRoute}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, microRoute: v }))}
+                  placeholder="Ej: 1.1"
+                  placeholderTextColor={theme.colors.textMuted}
+                  editable={!opEditingKey}
+                />
+                <Text style={styles.fieldLabel}>Tipo de microruta</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.tipoMicroruta}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, tipoMicroruta: v }))}
+                  placeholder="Ej: Residencial, Comercial..."
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+                <Text style={styles.fieldLabel}>Fecha entrada operación</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.fechaEntradaOperacion}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, fechaEntradaOperacion: v }))}
+                  placeholder="DD/MM/AAAA"
+                  placeholderTextColor={theme.colors.textMuted}
+                  keyboardType="numeric"
+                />
+              </View>
 
-              <Text style={styles.fieldLabel}>Frecuencia (días de recolección)</Text>
-              <View style={styles.opDaysRow}>
-                {ALL_WEEKDAYS.map((day) => (
-                  <TouchableOpacity
-                    key={day}
-                    style={[styles.opDayChip, opForm.frequencyDays.includes(day) && styles.opDayChipActive]}
-                    onPress={() => toggleOpDay(day)}
-                  >
-                    <Text style={[styles.opDayText, opForm.frequencyDays.includes(day) && styles.opDayTextActive]}>
-                      {day.slice(0, 2)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              {/* ── Recorrido ────────────────────────────── */}
+              <View style={styles.opFormSection}>
+                <Text style={styles.opFormSectionTitle}>Recorrido</Text>
+                <Text style={styles.fieldLabel}>Dirección predio inicio</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.direccionPredioInicio}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, direccionPredioInicio: v }))}
+                  placeholder="Ej: Calle 5 # 10-20"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+                <Text style={styles.fieldLabel}>Hora inicio microruta</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.horaInicioMicroruta}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, horaInicioMicroruta: v }))}
+                  placeholder="Ej: 6:30 AM"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+                <Text style={styles.fieldLabel}>Dirección predio finalización</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.direccionPredioFin}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, direccionPredioFin: v }))}
+                  placeholder="Ej: Carrera 8 # 15-30"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+                <Text style={styles.fieldLabel}>Hora finalización</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.horaFinalizacion}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, horaFinalizacion: v }))}
+                  placeholder="Ej: 12:00 PM"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
+              </View>
+
+              {/* ── Distancias ───────────────────────────── */}
+              <View style={styles.opFormSection}>
+                <Text style={styles.opFormSectionTitle}>Distancias</Text>
+                <View style={styles.twoCols}>
+                  <View style={styles.col}>
+                    <Text style={styles.fieldLabel}>Pavimentada (km)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={opForm.distanciaPavimentadaKm}
+                      onChangeText={(v) => setOpForm((f) => ({ ...f, distanciaPavimentadaKm: v.replace(/[^0-9.,]/g, '') }))}
+                      placeholder="0.0"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                  <View style={styles.col}>
+                    <Text style={styles.fieldLabel}>No pavimentada (km)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={opForm.distanciaNosPavimentadaKm}
+                      onChangeText={(v) => setOpForm((f) => ({ ...f, distanciaNosPavimentadaKm: v.replace(/[^0-9.,]/g, '') }))}
+                      placeholder="0.0"
+                      placeholderTextColor={theme.colors.textMuted}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* ── Frecuencia ───────────────────────────── */}
+              <View style={styles.opFormSection}>
+                <Text style={styles.opFormSectionTitle}>Frecuencia</Text>
+                <Text style={styles.fieldLabel}>Veces por semana</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.frecuenciaVecesSemana}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, frecuenciaVecesSemana: v.replace(/\D/g, '') }))}
+                  placeholder="Ej: 3"
+                  placeholderTextColor={theme.colors.textMuted}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.fieldLabel}>Días de recolección</Text>
+                <View style={styles.opDaysRow}>
+                  {ALL_WEEKDAYS.map((day, idx) => (
+                    <TouchableOpacity
+                      key={day}
+                      style={[styles.opDayChip, opForm.frequencyDays.includes(day) && styles.opDayChipActive]}
+                      onPress={() => toggleOpDay(day)}
+                    >
+                      <Text style={[styles.opDayNumText, opForm.frequencyDays.includes(day) && styles.opDayTextActive]}>
+                        {idx + 1}
+                      </Text>
+                      <Text style={[styles.opDayText, opForm.frequencyDays.includes(day) && styles.opDayTextActive]}>
+                        {day.slice(0, 2)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* ── Estación de transferencia ────────────── */}
+              <View style={styles.opFormSection}>
+                <Text style={styles.opFormSectionTitle}>Infraestructura</Text>
+                <Text style={styles.fieldLabel}>Estación de transferencia</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  value={opForm.estacionTransferencia}
+                  onChangeText={(v) => setOpForm((f) => ({ ...f, estacionTransferencia: v }))}
+                  placeholder="Ej: ECA Zipaquirá"
+                  placeholderTextColor={theme.colors.textMuted}
+                />
               </View>
 
               <TouchableOpacity
@@ -1054,6 +1251,9 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.textSecondary,
   },
+  opFreqRow: {
+    marginTop: theme.spacing.sm,
+  },
   opFreqLabel: {
     fontSize: theme.typography.sizes.tiny,
     color: theme.colors.textMuted,
@@ -1062,6 +1262,23 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: theme.spacing.xs,
   },
+  opMetaText: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
+  },
+  opDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.xs,
+    marginBottom: 4,
+  },
+  opDetailText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    lineHeight: 18,
+  },
   opDaysRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1069,8 +1286,8 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   opDayChip: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     borderRadius: theme.radius.sm,
     borderWidth: 1,
     borderColor: theme.colors.border,
@@ -1082,6 +1299,12 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary,
     borderColor: theme.colors.primary,
   },
+  opDayNumText: {
+    fontSize: 9,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textMuted,
+    lineHeight: 10,
+  },
   opDayText: {
     fontSize: theme.typography.sizes.tiny,
     fontWeight: theme.typography.weights.semibold,
@@ -1089,5 +1312,21 @@ const styles = StyleSheet.create({
   },
   opDayTextActive: {
     color: theme.colors.textOnPrimary,
+  },
+  opFormSection: {
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  opFormSectionTitle: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: theme.spacing.sm,
   },
 });

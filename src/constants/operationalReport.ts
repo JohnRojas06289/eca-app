@@ -28,7 +28,17 @@ export interface OperationalReportSettings {
 export interface OperationalMicroRouteConfig {
   macroRoute: string;
   microRoute: string;
+  tipoMicroruta?: string;
+  fechaEntradaOperacion?: string;
+  direccionPredioInicio?: string;
+  horaInicioMicroruta?: string;
+  direccionPredioFin?: string;
+  horaFinalizacion?: string;
+  distanciaPavimentadaKm?: string;
+  distanciaNosPavimentadaKm?: string;
+  frecuenciaVecesSemana?: string;
   frequencyDays: OperationalWeekday[];
+  estacionTransferencia?: string;
   onlyAssociatedToEca: boolean;
 }
 
