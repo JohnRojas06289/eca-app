@@ -354,14 +354,7 @@ export default function AdminNewWeighingScreen() {
             )}
           </View>
           <View style={styles.dateRow}>
-            <TextInput
-              value={form.recordDate}
-              onChangeText={(v) => updateForm('recordDate', v)}
-              placeholder="DD/MM/AAAA"
-              placeholderTextColor={theme.colors.textMuted}
-              style={[styles.input, { flex: 1 }]}
-            />
-            {/* Botón calendario — en web abre el picker nativo del navegador */}
+            {/* Botón calendario a la izquierda — el picker abre hacia el centro */}
             <View style={styles.calendarBtnWrap}>
               <Ionicons name="calendar-outline" size={22} color={theme.colors.primary} />
               {Platform.OS === 'web' && (
@@ -376,6 +369,13 @@ export default function AdminNewWeighingScreen() {
                 />
               )}
             </View>
+            <TextInput
+              value={form.recordDate}
+              onChangeText={(v) => updateForm('recordDate', v)}
+              placeholder="DD/MM/AAAA"
+              placeholderTextColor={theme.colors.textMuted}
+              style={[styles.input, { flex: 1 }]}
+            />
           </View>
           <Text style={styles.fieldHint}>(dd/mm/aaaa)</Text>
 
