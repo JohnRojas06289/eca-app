@@ -241,7 +241,7 @@ export default function AdminUsersScreen() {
         )}
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtersScroll}>
+      <View style={styles.filtersScroll}>
         {ROLE_FILTERS.map((f) => {
           const isActive = roleFilter === f.key;
           return (
@@ -255,7 +255,7 @@ export default function AdminUsersScreen() {
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
 
       <FlatList
         data={filtered}
@@ -579,6 +579,8 @@ const styles = StyleSheet.create({
   },
 
   filtersScroll: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: theme.spacing.screen,
     gap: theme.spacing.sm,
     paddingBottom: theme.spacing.md,
