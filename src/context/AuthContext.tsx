@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isAccessTokenExpired } from '@/src/utils/authToken';
 
 export type UserRole = 'citizen' | 'recycler' | 'admin' | 'supervisor' | 'superadmin';
 
@@ -32,7 +33,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     AsyncStorage.getItem(AUTH_STORAGE_KEY)
-      .then((json) => setUser(json ? (JSON.parse(json) as AuthUser) : null))
+      .then(async (json) => {
+        if (!json) {
+          setUser(null);
+          return;
+        }
+
+        const parsed = JSON.parse(json) as AuthUser;
+        if (isAccessTokenExpired(parsed.token)) {
+          await AsyncStorage.removeItem(AUTH_STORAGE_KEY).catch(() => null);
+          setUser(null);
+          return;
+        }
+
+        setUser(parsed);
+      })
       .catch(() => setUser(null));
   }, []);
 

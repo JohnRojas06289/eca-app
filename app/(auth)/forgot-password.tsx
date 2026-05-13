@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
 import { CustomInput } from '@/src/components/CustomInput';
+import { API_BASE_URL, USE_DEMO_AUTH } from '@/src/config/env';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -39,6 +40,11 @@ export default function ForgotPasswordScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
+      if (API_BASE_URL && !USE_DEMO_AUTH) {
+        setEmailError('La recuperación de contraseña aún no está disponible en la API real.');
+        return;
+      }
+
       // ⚠️ Reemplazar con llamada real a la API:
       // await AuthApi.sendRecoveryCode({ email });
       await new Promise((r) => setTimeout(r, 800));

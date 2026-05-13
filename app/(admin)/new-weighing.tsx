@@ -110,6 +110,7 @@ export default function AdminNewWeighingScreen() {
     (item) => item.family === form.materialFamily,
   );
 
+  const linkedUsersCountValue = Number(form.linkedUsersCount.trim());
   const quantityKg = parseDecimalField(form.quantityKg);
   const rejectedKg = form.rejectedKg.trim() === '' ? 0 : parseDecimalField(form.rejectedKg);
   const effectiveKg =
@@ -121,6 +122,24 @@ export default function AdminNewWeighingScreen() {
     : 'OP-000';
   const isAforado =
     Number.isFinite(quantityKg) && quantityKg >= settings.aforadoThresholdKg;
+  const routeReady =
+    form.microRoute.trim() !== '' &&
+    Number.isFinite(linkedUsersCountValue) &&
+    linkedUsersCountValue > 0;
+  const materialReady = form.materialFamily.trim() !== '' && form.materialCode.trim() !== '';
+  const weighingReady =
+    Number.isFinite(quantityKg) &&
+    quantityKg > 0 &&
+    Number.isFinite(rejectedKg) &&
+    rejectedKg >= 0 &&
+    rejectedKg <= quantityKg;
+  const progressSteps = [
+    { key: 'operator', label: 'Operador', done: selectedRecycler !== null },
+    { key: 'route', label: 'Ruta', done: routeReady },
+    { key: 'material', label: 'Material', done: materialReady },
+    { key: 'weighing', label: 'Pesaje', done: weighingReady },
+  ];
+  const completedSteps = progressSteps.filter((step) => step.done).length;
 
   function updateForm<K extends keyof WeighingFormState>(
     key: K,
@@ -223,6 +242,47 @@ export default function AdminNewWeighingScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.progressCard}>
+            <View style={styles.progressHeader}>
+              <View style={styles.progressIntro}>
+                <Text style={styles.progressEyebrow}>Captura guiada</Text>
+                <Text style={styles.progressTitle}>Avance del registro</Text>
+                <Text style={styles.progressDescription}>
+                  Completa los bloques en orden para validar la entrada con menos friccion.
+                </Text>
+              </View>
+              <View style={styles.progressCounter}>
+                <Text style={styles.progressCounterValue}>{completedSteps}/4</Text>
+                <Text style={styles.progressCounterLabel}>listos</Text>
+              </View>
+            </View>
+            <View style={styles.progressStepRow}>
+              {progressSteps.map((step, index) => (
+                <View
+                  key={step.key}
+                  style={[styles.progressStepChip, step.done && styles.progressStepChipDone]}
+                >
+                  <Text
+                    style={[
+                      styles.progressStepIndex,
+                      step.done && styles.progressStepIndexDone,
+                    ]}
+                  >
+                    {index + 1}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.progressStepLabel,
+                      step.done && styles.progressStepLabelDone,
+                    ]}
+                  >
+                    {step.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
           {/* ── Campos automáticos ───────────────────────── */}
           <View style={styles.autoCard}>
             <Text style={styles.sectionTitle}>Campos automáticos</Text>
@@ -277,8 +337,22 @@ export default function AdminNewWeighingScreen() {
               <TouchableOpacity onPress={() => setCedulaSearch('')}>
                 <Ionicons name="close-circle" size={16} color={theme.colors.textMuted} />
               </TouchableOpacity>
-            )}
+              )}
           </View>
+
+          {selectedRecycler && (
+            <View style={styles.selectedSummaryCard}>
+              <View>
+                <Text style={styles.selectedSummaryLabel}>Operador seleccionado</Text>
+                <Text style={styles.selectedSummaryTitle}>{selectedRecycler.name}</Text>
+                <Text style={styles.selectedSummaryMeta}>
+                  Codigo {operatorCode}
+                  {selectedRecycler.association ? ` · ${selectedRecycler.association}` : ''}
+                </Text>
+              </View>
+              <Ionicons name="checkmark-circle" size={24} color={theme.colors.success} />
+            </View>
+          )}
 
           <View style={styles.recyclerList}>
             {filteredRecyclers.map((recycler) => {
@@ -343,6 +417,19 @@ export default function AdminNewWeighingScreen() {
                 </TouchableOpacity>
               );
             })}
+          </View>
+
+          <View style={styles.inlineStatusRow}>
+            <View style={styles.inlineStatusCard}>
+              <Text style={styles.inlineStatusLabel}>Macroruta</Text>
+              <Text style={styles.inlineStatusValue}>{macroRoute}</Text>
+            </View>
+            <View style={styles.inlineStatusCard}>
+              <Text style={styles.inlineStatusLabel}>Frecuencia</Text>
+              <Text style={styles.inlineStatusValue}>
+                {form.aforadoToEca ? microRouteConfig?.frequencyDays.join(', ') || 'N/A' : 'No aplica'}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.inputGrid}>
@@ -493,6 +580,19 @@ export default function AdminNewWeighingScreen() {
             </View>
           </View>
 
+          <View style={styles.inlineStatusRow}>
+            <View style={styles.inlineStatusCard}>
+              <Text style={styles.inlineStatusLabel}>Neto util</Text>
+              <Text style={styles.inlineStatusValue}>
+                {Number.isFinite(effectiveKg) ? effectiveKg.toLocaleString('es-CO') : '0'} kg
+              </Text>
+            </View>
+            <View style={styles.inlineStatusCard}>
+              <Text style={styles.inlineStatusLabel}>Aforado</Text>
+              <Text style={styles.inlineStatusValue}>{isAforado ? 'Si' : 'No'}</Text>
+            </View>
+          </View>
+
           <Text style={styles.fieldLabel}>¿Aplica Tarifa 596?</Text>
           <View style={styles.chipRow}>
             {[
@@ -622,6 +722,105 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.huge,
   },
+  progressCard: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+    gap: theme.spacing.md,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+  },
+  progressIntro: {
+    flex: 1,
+    gap: 4,
+  },
+  progressEyebrow: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.primary,
+    fontWeight: theme.typography.weights.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  progressTitle: {
+    fontSize: theme.typography.sizes.h4,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  progressDescription: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+  },
+  progressCounter: {
+    minWidth: 68,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: theme.colors.primaryLight,
+    alignItems: 'center',
+  },
+  progressCounterValue: {
+    fontSize: theme.typography.sizes.h4,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.primaryDark,
+  },
+  progressCounterLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.primaryDark,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  progressStepRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  progressStepChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  progressStepChipDone: {
+    borderColor: theme.colors.success,
+    backgroundColor: theme.colors.successLight,
+  },
+  progressStepIndex: {
+    width: 20,
+    height: 20,
+    borderRadius: theme.radius.circle,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontSize: theme.typography.sizes.tiny,
+    fontWeight: theme.typography.weights.bold,
+    color: theme.colors.textMuted,
+    backgroundColor: theme.colors.surface,
+    overflow: 'hidden',
+  },
+  progressStepIndexDone: {
+    color: theme.colors.success,
+  },
+  progressStepLabel: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    fontWeight: theme.typography.weights.medium,
+  },
+  progressStepLabelDone: {
+    color: theme.colors.success,
+    fontWeight: theme.typography.weights.semibold,
+  },
   sectionTitle: {
     fontSize: theme.typography.sizes.h4,
     fontWeight: theme.typography.weights.semibold,
@@ -687,6 +886,35 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.body,
     color: theme.colors.textPrimary,
     paddingVertical: 0,
+  },
+  selectedSummaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    backgroundColor: theme.colors.successLight,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    borderColor: theme.colors.success,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  selectedSummaryLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.success,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  selectedSummaryTitle: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  selectedSummaryMeta: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    marginTop: 2,
   },
   recyclerList: {
     gap: theme.spacing.sm,
@@ -772,6 +1000,32 @@ const styles = StyleSheet.create({
   },
   routeFrequencySelected: { color: theme.colors.primary },
   routeCheck: { marginLeft: theme.spacing.sm },
+  inlineStatusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  inlineStatusCard: {
+    flexGrow: 1,
+    flexBasis: '47%',
+    minWidth: 0,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+  },
+  inlineStatusLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  inlineStatusValue: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.weights.semibold,
+  },
   inputGrid: {
     flexDirection: 'row',
     gap: theme.spacing.md,

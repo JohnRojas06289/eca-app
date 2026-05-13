@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { useAuth } from '@/src/hooks/useAuth';
 import { API_BASE_URL, ENABLE_DEMO_CHAT } from '@/src/config/env';
+import { apiRequest } from '@/src/services/api';
 
 // ── Preguntas sugeridas por rol ───────────────────────────────────────────────
 const SUGGESTED_QUESTIONS: Record<string, string[]> = {
@@ -276,19 +277,16 @@ export function ChatBot() {
     try {
       let reply: string;
 
-      if (API_BASE_URL) {
-        const res = await fetch(`${API_BASE_URL}/api/chat`, {
+      if (API_BASE_URL && user?.token) {
+        const data = await apiRequest<{ conversationId: string; reply: string }>('/api/chat', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+          token: user.token,
+          timeoutMs: 30000,
+          body: {
             message: text,
-            userId: user?.id,
-            userRole: user?.role,
             conversationId: conversationId ?? undefined,
-          }),
+          },
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
         setConversationId(data.conversationId);
         reply = data.reply;
       } else if (ENABLE_DEMO_CHAT) {

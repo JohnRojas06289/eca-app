@@ -15,6 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { CustomButton } from '@/src/components/CustomButton';
+import { API_BASE_URL, USE_DEMO_AUTH } from '@/src/config/env';
 
 const OTP_LENGTH = 6;
 const RESEND_SECONDS = 45;
@@ -67,6 +68,10 @@ export default function VerifyCodeScreen() {
 
   async function handleResend() {
     if (!canResend) return;
+    if (API_BASE_URL && !USE_DEMO_AUTH) {
+      setError('La verificación por código aún no está disponible en la API real.');
+      return;
+    }
     setCountdown(RESEND_SECONDS);
     setCanResend(false);
     setOtp(Array(OTP_LENGTH).fill(''));
@@ -84,6 +89,11 @@ export default function VerifyCodeScreen() {
     setLoading(true);
     setError('');
     try {
+      if (API_BASE_URL && !USE_DEMO_AUTH) {
+        setError('La verificación por código aún no está disponible en la API real.');
+        return;
+      }
+
       // ⚠️ Reemplazar con verificación real contra la API:
       // await AuthApi.verifyCode({ code, cedula, flow });
       await new Promise((r) => setTimeout(r, 800));

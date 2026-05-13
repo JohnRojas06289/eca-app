@@ -106,14 +106,18 @@ export default function RegisterScreen() {
     try {
       if (API_BASE_URL && !USE_DEMO_AUTH && role) {
         await registerWithApi({ name, email, phone, role, password });
+        router.push({
+          pathname: '/(auth)/success',
+          params: { type: 'account' },
+        });
       } else {
         // Modo demo controlado por env: permite revisar el frontend sin backend.
         await new Promise((r) => setTimeout(r, 800));
+        router.push({
+          pathname: '/(auth)/verify-code',
+          params: { flow: 'register', phone: phone.slice(-4) },
+        });
       }
-      router.push({
-        pathname: '/(auth)/verify-code',
-        params: { flow: 'register', phone: phone.slice(-4) },
-      });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No fue posible crear la cuenta.';
       setErrors((prev) => ({ ...prev, submit: message }));

@@ -6,6 +6,7 @@ import {
   countUsersByRole,
   createUser,
   ensureDatabaseReady,
+  getConversationById,
   getConversationMessages,
   getDatabaseConfigStatus,
   getUserByEmail,
@@ -114,6 +115,25 @@ function getErrorStatus(error, fallback = 500) {
 
 function getErrorMessage(error, fallback = 'Error interno del servidor.') {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function withTimeout(timeoutMs, label) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    cancel() {
+      clearTimeout(timeoutId);
+    },
+    toError(error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        const timeoutError = new Error(`Tiempo de espera agotado en ${label}.`);
+        timeoutError.status = 504;
+        return timeoutError;
+      }
+      return error;
+    },
+  };
 }
 
 app.use(cors());
@@ -225,15 +245,15 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', requireAuth, async (req, res) => {
   try {
     if (!GEMINI_API_KEY) {
       return res.status(500).json({ error: { message: 'Falta GEMINI_API_KEY en el backend.' } });
     }
 
     const message = String(req.body?.message || '').trim();
-    const userId = req.body?.userId ? String(req.body.userId) : null;
-    const userRole = req.body?.userRole ? String(req.body.userRole) : null;
+    const userId = String(req.user.sub);
+    const userRole = String(req.user.role);
 
     if (!message) {
       return res.status(400).json({ error: { message: 'El campo "message" es obligatorio.' } });
@@ -242,6 +262,13 @@ app.post('/api/chat', async (req, res) => {
     const conversationId = req.body?.conversationId
       ? String(req.body.conversationId)
       : crypto.randomUUID();
+
+    const existingConversation = await getConversationById(conversationId);
+    if (existingConversation && String(existingConversation.user_id ?? '') !== userId) {
+      return res.status(403).json({
+        error: { message: 'No tienes permisos para continuar esta conversación.' },
+      });
+    }
 
     await upsertConversation({ conversationId, userId, userRole });
     await saveMessage({ conversationId, sender: 'user', content: message });
@@ -255,18 +282,27 @@ app.post('/api/chat', async (req, res) => {
     const geminiUrl =
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-    const geminiRes = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: buildSystemPrompt(userRole) }] },
-        contents,
-        generationConfig: {
-          temperature: 0.65,
-          maxOutputTokens: 512,
-        },
-      }),
-    });
+    const timeout = withTimeout(30000, 'Gemini');
+    let geminiRes;
+    try {
+      geminiRes = await fetch(geminiUrl, {
+        method: 'POST',
+        signal: timeout.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: buildSystemPrompt(userRole) }] },
+          contents,
+          generationConfig: {
+            temperature: 0.65,
+            maxOutputTokens: 512,
+          },
+        }),
+      });
+    } catch (error) {
+      throw timeout.toError(error);
+    } finally {
+      timeout.cancel();
+    }
 
     if (!geminiRes.ok) {
       const err = await geminiRes.json().catch(() => ({}));
@@ -282,7 +318,7 @@ app.post('/api/chat', async (req, res) => {
 
     await saveMessage({ conversationId, sender: 'assistant', content: reply });
 
-      return res.json({ conversationId, reply });
+    return res.json({ conversationId, reply });
   } catch (error) {
     console.error(error);
     return res.status(getErrorStatus(error)).json({
@@ -290,6 +326,23 @@ app.post('/api/chat', async (req, res) => {
     });
   }
 });
+
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: { message: 'Token no proporcionado.' } });
+  }
+
+  const token = authHeader.slice(7);
+  const userPayload = verifyAccessToken(token);
+
+  if (!userPayload) {
+    return res.status(401).json({ error: { message: 'Token invÃ¡lido o expirado.' } });
+  }
+
+  req.user = userPayload;
+  next();
+}
 
 function requireRole(...roles) {
   return (req, res, next) => {
@@ -315,6 +368,7 @@ function requireRole(...roles) {
 }
 
 const adminMiddleware = requireRole('admin', 'supervisor', 'superadmin');
+const userManageMiddleware = requireRole('admin', 'superadmin');
 const superadminMiddleware = requireRole('superadmin');
 
 app.get('/api/users', adminMiddleware, async (req, res) => {
@@ -338,7 +392,7 @@ app.get('/api/users/:id', adminMiddleware, async (req, res) => {
   }
 });
 
-app.post('/api/admin/users', adminMiddleware, async (req, res) => {
+app.post('/api/admin/users', userManageMiddleware, async (req, res) => {
   try {
     const name = String(req.body?.name ?? '').trim();
     const email = String(req.body?.email ?? '').trim().toLowerCase();
@@ -390,7 +444,7 @@ app.post('/api/admin/users', adminMiddleware, async (req, res) => {
   }
 });
 
-app.put('/api/users/:id', adminMiddleware, async (req, res) => {
+app.put('/api/users/:id', userManageMiddleware, async (req, res) => {
   try {
     const id = req.params.id;
     const existingUser = await getUserById(id);
@@ -459,7 +513,7 @@ app.put('/api/users/:id', adminMiddleware, async (req, res) => {
   }
 });
 
-app.delete('/api/users/:id', adminMiddleware, async (req, res) => {
+app.delete('/api/users/:id', userManageMiddleware, async (req, res) => {
   try {
     const id = req.params.id;
     const existingUser = await getUserById(id);

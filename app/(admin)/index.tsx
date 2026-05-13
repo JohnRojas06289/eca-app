@@ -108,6 +108,8 @@ export default function AdminHomeScreen() {
               style={styles.notifBtn}
               onPress={() => router.push('/(admin)/alerts' as any)}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Ver alertas recientes"
             >
               <Ionicons name="notifications-outline" size={22} color={theme.colors.textPrimary} />
               <View style={styles.notifDot} />
@@ -117,6 +119,8 @@ export default function AdminHomeScreen() {
                 style={styles.notifBtn}
                 onPress={() => setMenuOpen(true)}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Abrir menú de administración"
               >
                 <Ionicons name="menu-outline" size={22} color={theme.colors.textPrimary} />
               </TouchableOpacity>
@@ -183,6 +187,8 @@ export default function AdminHomeScreen() {
               style={styles.quickActionCard}
               activeOpacity={0.85}
               onPress={() => router.push(action.route as any)}
+              accessibilityRole="button"
+              accessibilityLabel={action.label}
             >
               <View style={styles.quickActionIconBg}>
                 <Ionicons name={action.icon as any} size={18} color={theme.colors.primary} />
@@ -253,11 +259,20 @@ export default function AdminHomeScreen() {
       {showMobileMenu && (
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
         <View style={styles.drawerOverlay}>
-          <Pressable style={styles.drawerBackdrop} onPress={() => setMenuOpen(false)} />
+          <Pressable
+            style={styles.drawerBackdrop}
+            onPress={() => setMenuOpen(false)}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar menú"
+          />
           <View style={styles.drawerPanel}>
             <View style={styles.drawerHeader}>
               <Text style={styles.drawerTitle}>Menú</Text>
-              <TouchableOpacity onPress={() => setMenuOpen(false)}>
+              <TouchableOpacity
+                onPress={() => setMenuOpen(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar menú"
+              >
                 <Ionicons name="close" size={22} color={theme.colors.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -270,6 +285,8 @@ export default function AdminHomeScreen() {
                   setMenuOpen(false);
                   router.push(action.route as any);
                 }}
+                accessibilityRole="button"
+                accessibilityLabel={action.label}
               >
                 <Ionicons name={action.icon as any} size={18} color={theme.colors.textSecondary} />
                 <Text style={styles.drawerItemText}>{action.label}</Text>

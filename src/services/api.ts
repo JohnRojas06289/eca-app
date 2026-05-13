@@ -13,6 +13,7 @@ export class ApiError extends Error {
 type RequestOptions = Omit<RequestInit, 'body'> & {
   body?: unknown;
   token?: string;
+  timeoutMs?: number;
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
@@ -20,26 +21,39 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError('API no configurada.', 0);
   }
 
-  const { token, ...fetchOptions } = options;
+  const { token, timeoutMs = 15000, ...fetchOptions } = options;
   const endpoint = path.startsWith('/') ? path : `/${path}`;
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...fetchOptions,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(fetchOptions.headers ?? {}),
-    },
-    body: fetchOptions.body == null ? undefined : JSON.stringify(fetchOptions.body),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const payload = await response.json().catch(() => null);
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...fetchOptions,
+      signal: fetchOptions.signal ?? controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(fetchOptions.headers ?? {}),
+      },
+      body: fetchOptions.body == null ? undefined : JSON.stringify(fetchOptions.body),
+    });
 
-  if (!response.ok) {
-    throw new ApiError(
-      payload?.error?.message || payload?.message || `Error HTTP ${response.status}`,
-      response.status,
-    );
+    const payload = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new ApiError(
+        payload?.error?.message || payload?.message || `Error HTTP ${response.status}`,
+        response.status,
+      );
+    }
+
+    return payload as T;
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError('La solicitud tardó demasiado. Intenta de nuevo.', 408);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return payload as T;
 }

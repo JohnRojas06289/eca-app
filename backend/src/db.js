@@ -49,6 +49,23 @@ function assertDatabaseConfigured() {
   return config;
 }
 
+function withTimeout(timeoutMs, label) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return {
+    signal: controller.signal,
+    cancel() {
+      clearTimeout(timeoutId);
+    },
+    toError(error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return createHttpError(`Tiempo de espera agotado en ${label}.`, 504);
+      }
+      return error;
+    },
+  };
+}
+
 function toHrana(value) {
   if (value === null || value === undefined) return { type: 'null' };
   if (typeof value === 'boolean') return { type: 'integer', value: value ? '1' : '0' };
@@ -60,35 +77,43 @@ function toHrana(value) {
 
 async function rawQuery(sql, args = []) {
   const { databaseUrl, authToken } = assertDatabaseConfigured();
+  const timeout = withTimeout(10000, 'Turso');
 
-  const response = await fetch(`${databaseUrl}/v2/pipeline`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${authToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      requests: [
-        { type: 'execute', stmt: { sql, args: args.map(toHrana) } },
-        { type: 'close' },
-      ],
-    }),
-  });
+  try {
+    const response = await fetch(`${databaseUrl}/v2/pipeline`, {
+      method: 'POST',
+      signal: timeout.signal,
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          { type: 'execute', stmt: { sql, args: args.map(toHrana) } },
+          { type: 'close' },
+        ],
+      }),
+    });
 
-  if (!response.ok) {
-    throw createHttpError(`Turso HTTP ${response.status}: ${await response.text()}`, 502);
+    if (!response.ok) {
+      throw createHttpError(`Turso HTTP ${response.status}: ${await response.text()}`, 502);
+    }
+
+    const data = await response.json();
+    const result = data.results?.[0];
+    if (result?.type === 'error') {
+      throw createHttpError(result.error?.message ?? 'Error de Turso.', 502);
+    }
+
+    const { cols = [], rows = [] } = result?.response?.result ?? {};
+    return rows.map((row) =>
+      Object.fromEntries(cols.map((col, index) => [col.name, row[index]?.value ?? null])),
+    );
+  } catch (error) {
+    throw timeout.toError(error);
+  } finally {
+    timeout.cancel();
   }
-
-  const data = await response.json();
-  const result = data.results?.[0];
-  if (result?.type === 'error') {
-    throw createHttpError(result.error?.message ?? 'Error de Turso.', 502);
-  }
-
-  const { cols = [], rows = [] } = result?.response?.result ?? {};
-  return rows.map((row) =>
-    Object.fromEntries(cols.map((col, index) => [col.name, row[index]?.value ?? null])),
-  );
 }
 
 let schemaReadyPromise = null;
@@ -114,6 +139,8 @@ export async function ensureDatabaseReady() {
 
       await rawQuery(`CREATE INDEX IF NOT EXISTS idx_chat_messages_cid
         ON chat_messages(conversation_id, id)`);
+      await rawQuery(`CREATE INDEX IF NOT EXISTS idx_conversations_user_id
+        ON conversations(user_id)`);
 
       await rawQuery(`CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -187,6 +214,15 @@ export async function getConversationMessages(conversationId, limit = 20) {
     [conversationId, limit],
   );
   return rows.reverse();
+}
+
+export async function getConversationById(conversationId) {
+  const rows = await query(
+    `SELECT id, user_id, user_role, created_at
+     FROM conversations WHERE id = ? LIMIT 1`,
+    [String(conversationId ?? '')],
+  );
+  return rows[0] ?? null;
 }
 
 export async function getUserByEmail(email) {

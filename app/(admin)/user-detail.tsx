@@ -93,6 +93,7 @@ export default function UserDetailScreen() {
   const [editRole, setEditRole]   = useState<UserRole>(initRole);
   const [editAssoc, setEditAssoc] = useState(initAssoc);
   const [editPassword, setEditPassword] = useState('');
+  const canManageUsers = authUser?.role === 'admin' || authUser?.role === 'superadmin';
 
   const ROLE_EDIT_OPTIONS: UserRole[] = authUser?.role === 'superadmin'
     ? ['recycler', 'citizen', 'admin', 'supervisor', 'superadmin']
@@ -124,7 +125,7 @@ export default function UserDetailScreen() {
   const initials  = name.split(' ').map((n: string) => n[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   async function toggleStatus() {
-    if (!userId) return;
+    if (!userId || !canManageUsers) return;
     setToggling(true);
     try {
       const next: UserStatus = status === 'active' ? 'inactive' : 'active';
@@ -138,7 +139,7 @@ export default function UserDetailScreen() {
   }
 
   function confirmApprove() {
-    if (!userId) return;
+    if (!userId || !canManageUsers) return;
     Alert.alert(
       'Aprobar usuario',
       `¿Aprobar a ${name} como reutilizador activo?`,
@@ -159,6 +160,7 @@ export default function UserDetailScreen() {
   }
 
   function openEdit() {
+    if (!canManageUsers) return;
     setEditName(name);
     setEditEmail(email);
     setEditPhone(phone);
@@ -170,7 +172,7 @@ export default function UserDetailScreen() {
   }
 
   async function saveEdit() {
-    if (!userId) return;
+    if (!userId || !canManageUsers) return;
     if (!editName.trim() || !editEmail.trim()) {
       Alert.alert('Campos requeridos', 'Nombre y correo son obligatorios.');
       return;
@@ -213,7 +215,7 @@ export default function UserDetailScreen() {
   }
 
   function confirmDelete() {
-    if (!userId) return;
+    if (!userId || !canManageUsers) return;
     if (authUser?.id === userId) {
       Alert.alert('Acción no permitida', 'No puedes eliminar tu propio usuario.');
       return;
@@ -250,13 +252,17 @@ export default function UserDetailScreen() {
           <Ionicons name="arrow-back" size={24} color={theme.colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detalle de Usuario</Text>
-        <TouchableOpacity
-          onPress={openEdit}
-          disabled={loadingUser}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
-        </TouchableOpacity>
+        {canManageUsers ? (
+          <TouchableOpacity
+            onPress={openEdit}
+            disabled={loadingUser}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="create-outline" size={22} color={theme.colors.primary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerPlaceholder} />
+        )}
       </View>
 
       {!!loadError && (
@@ -361,36 +367,38 @@ export default function UserDetailScreen() {
         )}
 
         {/* ── Acciones ──────────────────────────────────────── */}
-        <View style={styles.actionsSection}>
-          {status === 'pending' ? (
-            <CustomButton
-              label="Aprobar Usuario"
-              leftIcon={<Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.textOnPrimary} />}
-              onPress={confirmApprove}
-              style={styles.actionBtn}
-            />
-          ) : (
-            <CustomButton
-              label={status === 'active' ? 'Desactivar Cuenta' : 'Activar Cuenta'}
-              leftIcon={
-                <Ionicons
-                  name={status === 'active' ? 'ban-outline' : 'checkmark-circle-outline'}
-                  size={18}
-                  color={status === 'active' ? theme.colors.error : theme.colors.textOnPrimary}
-                />
-              }
-              variant={status === 'active' ? 'secondary' : 'primary'}
-              onPress={toggleStatus}
-              loading={toggling}
-              style={styles.actionBtn}
-            />
-          )}
+        {canManageUsers && (
+          <View style={styles.actionsSection}>
+            {status === 'pending' ? (
+              <CustomButton
+                label="Aprobar Usuario"
+                leftIcon={<Ionicons name="checkmark-circle-outline" size={18} color={theme.colors.textOnPrimary} />}
+                onPress={confirmApprove}
+                style={styles.actionBtn}
+              />
+            ) : (
+              <CustomButton
+                label={status === 'active' ? 'Desactivar Cuenta' : 'Activar Cuenta'}
+                leftIcon={
+                  <Ionicons
+                    name={status === 'active' ? 'ban-outline' : 'checkmark-circle-outline'}
+                    size={18}
+                    color={status === 'active' ? theme.colors.error : theme.colors.textOnPrimary}
+                  />
+                }
+                variant={status === 'active' ? 'secondary' : 'primary'}
+                onPress={toggleStatus}
+                loading={toggling}
+                style={styles.actionBtn}
+              />
+            )}
 
-          <TouchableOpacity style={styles.deleteUserBtn} onPress={confirmDelete} activeOpacity={0.85}>
-            <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
-            <Text style={styles.deleteUserText}>Eliminar usuario</Text>
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity style={styles.deleteUserBtn} onPress={confirmDelete} activeOpacity={0.85}>
+              <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
+              <Text style={styles.deleteUserText}>Eliminar usuario</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
 
       {/* ── Modal Editar ─────────────────────────────────────── */}
@@ -518,6 +526,10 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.h4,
     fontWeight: theme.typography.weights.semibold,
     color: theme.colors.textPrimary,
+  },
+  headerPlaceholder: {
+    width: 22,
+    height: 22,
   },
   errorBanner: {
     flexDirection: 'row',

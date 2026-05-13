@@ -19,7 +19,7 @@ export const theme = {
     // ── Texto ──────────────────────────────────────────────
     textPrimary: '#0F172A',      // Slate 900 - Alta legibilidad
     textSecondary: '#475569',    // Slate 600
-    textMuted: '#94A3B8',        // Slate 400
+    textMuted: '#64748B',        // Slate 500 - mejor contraste para ayudas y placeholders
     textOnPrimary: '#FFFFFF',
     textLink: '#059669',
     textDanger: '#EF4444',

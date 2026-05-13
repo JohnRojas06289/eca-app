@@ -92,6 +92,9 @@ export function CustomInput({
           secureTextEntry={secureEntry}
           style={styles.input}
           placeholderTextColor={theme.colors.textMuted}
+          accessibilityLabel={inputProps.accessibilityLabel ?? label ?? inputProps.placeholder ?? 'Campo de texto'}
+          accessibilityHint={inputProps.accessibilityHint ?? hint ?? error ?? undefined}
+          accessibilityState={{ disabled: inputProps.editable === false }}
           onFocus={(e) => {
             setIsFocused(true);
             inputProps.onFocus?.(e);
@@ -108,6 +111,9 @@ export function CustomInput({
             onPress={() => setIsPasswordVisible((v) => !v)}
             style={styles.rightIconBtn}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={isPasswordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            accessibilityHint="Alterna la visibilidad del texto de la contraseña"
           >
             <Ionicons
               name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
@@ -124,6 +130,8 @@ export function CustomInput({
             style={styles.rightIconBtn}
             disabled={onRightIconPress == null}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityRole="button"
+            accessibilityLabel={label ? `Acción adicional para ${label}` : 'Acción adicional'}
           >
             <Ionicons
               name={rightIcon}
@@ -180,7 +188,6 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.body,
     color: theme.colors.textPrimary,
     paddingVertical: 0,
-    outlineStyle: 'none' as any,
   },
   rightIconBtn: {
     marginLeft: theme.spacing.sm,

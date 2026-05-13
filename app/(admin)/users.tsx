@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
+  FlatList,
   TouchableOpacity,
   TextInput,
   Modal,
@@ -76,21 +77,25 @@ export default function AdminUsersScreen() {
   const [saving, setSaving]         = useState(false);
   const now = new Date();
   const canManageSuperadmins = authUser?.role === 'superadmin';
+  const canMutateUsers = authUser?.role === 'admin' || authUser?.role === 'superadmin';
 
   const availableRoleOptions = useMemo(
     () => (canManageSuperadmins ? ROLE_OPTIONS : ROLE_OPTIONS.filter((role) => role !== 'superadmin')),
     [canManageSuperadmins],
   );
 
-  const filtered = users.filter((u) => {
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
-    const matchesSearch =
-      search === '' ||
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.cedula.includes(search);
-    return matchesRole && matchesSearch;
-  });
+  const filtered = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return users.filter((u) => {
+      const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+      const matchesSearch =
+        normalizedSearch === '' ||
+        u.name.toLowerCase().includes(normalizedSearch) ||
+        u.email.toLowerCase().includes(normalizedSearch) ||
+        u.cedula.includes(normalizedSearch);
+      return matchesRole && matchesSearch;
+    });
+  }, [roleFilter, search, users]);
 
   const counts = useMemo(
     () => ({
@@ -102,6 +107,7 @@ export default function AdminUsersScreen() {
   );
 
   function openCreate() {
+    if (!canMutateUsers) return;
     setForm(EMPTY_FORM);
     setModalVisible(true);
   }
@@ -251,66 +257,71 @@ export default function AdminUsersScreen() {
         })}
       </ScrollView>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {filtered.length === 0 ? (
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={32} color={theme.colors.textMuted} />
             <Text style={styles.emptyTitle}>Sin resultados</Text>
             <Text style={styles.emptySubtitle}>Ajusta el filtro o el término de búsqueda.</Text>
           </View>
-        ) : (
-          filtered.map((u) => {
-            const roleCfg   = ROLE_CONFIG[u.role];
-            const statusCfg = STATUS_CONFIG[u.status];
-            const initials  = u.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-            return (
-              <TouchableOpacity
-                key={u.id}
-                style={styles.userCard}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(admin)/user-detail' as any,
-                    params: {
-                      userId:          u.id,
-                      userName:        u.name,
-                      userEmail:       u.email,
-                      userPhone:       u.phone ?? '',
-                      userCedula:      u.cedula,
-                      userRole:        u.role,
-                      userStatus:      u.status,
-                      userAssociation: u.association ?? '',
-                      userJoinedAt:    u.joinedAt,
-                      userTotalKg:     u.totalKg?.toString() ?? '0',
-                    },
-                  })
-                }
-                activeOpacity={0.85}
-              >
-                <View style={styles.userAvatar}>
-                  <Text style={styles.userAvatarText}>{initials}</Text>
-                  <View style={[styles.statusDot, { backgroundColor: statusCfg.dotColor }]} />
-                </View>
+        }
+        renderItem={({ item: u }) => {
+          const roleCfg = ROLE_CONFIG[u.role];
+          const statusCfg = STATUS_CONFIG[u.status];
+          const initials = u.name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
 
-                <View style={styles.userInfo}>
-                  <View style={styles.userNameRow}>
-                    <Text style={styles.userName} numberOfLines={1}>{u.name}</Text>
-                    <View style={[styles.roleBadge, { backgroundColor: roleCfg.bgColor }]}>
-                      <Text style={[styles.roleBadgeText, { color: roleCfg.color }]}>{roleCfg.label}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.userCedula}>CC {u.cedula}</Text>
-                  <Text style={styles.userEmail} numberOfLines={1}>{u.email}</Text>
-                  <View style={styles.metaRow}>
-                    <Text style={styles.metaText}>Estado:</Text>
-                    <Text style={[styles.metaTextStrong, { color: statusCfg.color }]}>{statusCfg.label}</Text>
-                  </View>
-                  <Text style={styles.metaHint}>
-                    {u.totalKg !== undefined
-                      ? `${u.totalKg} kg recolectados · Desde ${u.joinedAt}`
-                      : `Desde ${u.joinedAt}`}
-                  </Text>
-                </View>
+          return (
+            <TouchableOpacity
+              style={styles.userCard}
+              onPress={() =>
+                router.push({
+                  pathname: '/(admin)/user-detail' as any,
+                  params: {
+                    userId: u.id,
+                    userName: u.name,
+                    userEmail: u.email,
+                    userPhone: u.phone ?? '',
+                    userCedula: u.cedula,
+                    userRole: u.role,
+                    userStatus: u.status,
+                    userAssociation: u.association ?? '',
+                    userJoinedAt: u.joinedAt,
+                    userTotalKg: u.totalKg?.toString() ?? '0',
+                  },
+                })
+              }
+              activeOpacity={0.85}
+            >
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>{initials}</Text>
+                <View style={[styles.statusDot, { backgroundColor: statusCfg.dotColor }]} />
+              </View>
 
+              <View style={styles.userInfo}>
+                <View style={styles.userNameRow}>
+                  <Text style={styles.userName} numberOfLines={1}>{u.name}</Text>
+                  <View style={[styles.roleBadge, { backgroundColor: roleCfg.bgColor }]}>
+                    <Text style={[styles.roleBadgeText, { color: roleCfg.color }]}>{roleCfg.label}</Text>
+                  </View>
+                </View>
+                <Text style={styles.userCedula}>CC {u.cedula}</Text>
+                <Text style={styles.userEmail} numberOfLines={1}>{u.email}</Text>
+                <View style={styles.metaRow}>
+                  <Text style={styles.metaText}>Estado:</Text>
+                  <Text style={[styles.metaTextStrong, { color: statusCfg.color }]}>{statusCfg.label}</Text>
+                </View>
+                <Text style={styles.metaHint}>
+                  {u.totalKg !== undefined
+                    ? `${u.totalKg} kg recolectados · Desde ${u.joinedAt}`
+                    : `Desde ${u.joinedAt}`}
+                </Text>
+              </View>
+
+              {canMutateUsers && (
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => confirmDelete(u)}
@@ -318,16 +329,18 @@ export default function AdminUsersScreen() {
                 >
                   <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
                 </TouchableOpacity>
-              </TouchableOpacity>
-            );
-          })
-        )}
-      </ScrollView>
+              )}
+            </TouchableOpacity>
+          );
+        }}
+      />
 
       {/* ── FAB ─────────────────────────────────────────────── */}
-      <TouchableOpacity style={styles.fab} onPress={openCreate} activeOpacity={0.85}>
-        <Ionicons name="person-add-outline" size={22} color={theme.colors.textOnPrimary} />
-      </TouchableOpacity>
+      {canMutateUsers && (
+        <TouchableOpacity style={styles.fab} onPress={openCreate} activeOpacity={0.85}>
+          <Ionicons name="person-add-outline" size={22} color={theme.colors.textOnPrimary} />
+        </TouchableOpacity>
+      )}
 
       {/* ── Modal Crear usuario ──────────────────────────────── */}
       <Modal

@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   TouchableOpacity,
+  TouchableOpacityProps,
   Text,
   StyleSheet,
   ViewStyle,
@@ -14,7 +15,7 @@ import { theme } from '@/src/theme/theme';
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
-interface CustomButtonProps {
+interface CustomButtonProps extends Omit<TouchableOpacityProps, 'style' | 'onPress'> {
   /** Texto del botón */
   label: string;
   onPress: () => void;
@@ -31,6 +32,8 @@ interface CustomButtonProps {
   fullWidth?: boolean;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  accessibilityHint?: string;
+  accessibilityLabel?: string;
 }
 
 /**
@@ -58,19 +61,41 @@ export function CustomButton({
   fullWidth = true,
   style,
   textStyle,
+  accessibilityHint,
+  accessibilityLabel,
+  ...touchableProps
 }: CustomButtonProps) {
   const isDisabled = disabled || loading;
+  const [isFocused, setIsFocused] = useState(false);
+  const webButtonStyle =
+    Platform.OS === 'web'
+      ? ({ cursor: 'pointer', transitionDuration: '160ms' } as any)
+      : undefined;
 
   return (
     <TouchableOpacity
+      {...touchableProps}
       onPress={onPress}
       disabled={isDisabled}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      onFocus={(event) => {
+        setIsFocused(true);
+        touchableProps.onFocus?.(event);
+      }}
+      onBlur={(event) => {
+        setIsFocused(false);
+        touchableProps.onBlur?.(event);
+      }}
       style={[
         styles.base,
-        Platform.OS === 'web' && styles.webBase,
+        webButtonStyle,
         sizeStyles[size],
         variantStyles[variant],
+        isFocused && styles.focused,
         isDisabled && styles.disabled,
         variant === 'secondary' && isDisabled && styles.disabledBorder,
         fullWidth && styles.fullWidth,
@@ -176,9 +201,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
   },
-  webBase: {
-    cursor: 'pointer' as any,
-    transitionDuration: '160ms' as any,
+  focused: {
+    borderWidth: 2,
+    borderColor: theme.colors.borderFocus,
   },
   fullWidth: {
     width: '100%',

@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 
 const scryptAsync = promisify(crypto.scrypt);
 const HASH_BYTES = 64;
+const DEFAULT_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function createHttpError(message, status = 400) {
   const error = new Error(message);
@@ -54,20 +55,26 @@ export async function verifyPassword(password, storedHash) {
 }
 
 function getTokenSecret() {
-  return (
-    readEnvString('AUTH_TOKEN_SECRET') ||
-    readEnvString('GEMINI_API_KEY') ||
-    'eca-app-dev-secret'
-  );
+  return readEnvString('AUTH_TOKEN_SECRET') || 'eca-app-dev-secret';
+}
+
+function getTokenTtlMs() {
+  const rawHours = Number(readEnvString('AUTH_TOKEN_TTL_HOURS') || '');
+  if (Number.isFinite(rawHours) && rawHours > 0) {
+    return rawHours * 60 * 60 * 1000;
+  }
+  return DEFAULT_TOKEN_TTL_MS;
 }
 
 export function createAccessToken(user) {
+  const issuedAt = Date.now();
   const payload = Buffer.from(
     JSON.stringify({
       sub: user.id,
       role: user.role,
       email: user.email,
-      iat: Date.now(),
+      iat: issuedAt,
+      exp: issuedAt + getTokenTtlMs(),
     }),
   ).toString('base64url');
 
@@ -92,7 +99,11 @@ export function verifyAccessToken(token) {
   if (signature !== expectedSignature) return null;
 
   try {
-    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    const parsed = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (!parsed?.exp || Date.now() >= Number(parsed.exp)) {
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }

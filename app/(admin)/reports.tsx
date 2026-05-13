@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -259,6 +259,8 @@ export default function AdminReportsScreen() {
   const [materialFamilyFilter, setMaterialFamilyFilter] = useState<'all' | OperationalMaterialFamily>('all');
   const [aforadoFilter, setAforadoFilter] = useState<'all' | 'si' | 'no'>('all');
   const [operatorCodeQuery, setOperatorCodeQuery] = useState('');
+  const [operationalFiltersExpanded, setOperationalFiltersExpanded] = useState(false);
+  const [visibleOperationalRowsCount, setVisibleOperationalRowsCount] = useState(12);
 
   const toggleField = (field: keyof typeof exportFields) => {
     setExportFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -388,6 +390,38 @@ export default function AdminReportsScreen() {
     [filteredOperationalRows],
   );
 
+  const activeOperationalFilters = useMemo(() => {
+    const filters: string[] = [];
+    if (macroRouteFilter !== 'all') filters.push(`Macroruta: ${macroRouteFilter}`);
+    if (microRouteFilter !== 'all') filters.push(`Microruta: ${microRouteFilter}`);
+    if (userTypeFilter !== 'all') {
+      filters.push(`Tipo: ${formatOperationalUserType(userTypeFilter)}`);
+    }
+    if (materialFamilyFilter !== 'all') filters.push(`Material: ${materialFamilyFilter}`);
+    if (aforadoFilter !== 'all') filters.push(`Aforado: ${aforadoFilter === 'si' ? 'Sí' : 'No'}`);
+    if (operatorCodeQuery.trim() !== '') filters.push(`Operador: ${operatorCodeQuery.trim()}`);
+    return filters;
+  }, [
+    aforadoFilter,
+    macroRouteFilter,
+    materialFamilyFilter,
+    microRouteFilter,
+    operatorCodeQuery,
+    userTypeFilter,
+  ]);
+  const visibleOperationalRows = useMemo(
+    () => filteredOperationalRows.slice(0, visibleOperationalRowsCount),
+    [filteredOperationalRows, visibleOperationalRowsCount],
+  );
+  const remainingOperationalRows = Math.max(
+    filteredOperationalRows.length - visibleOperationalRows.length,
+    0,
+  );
+
+  useEffect(() => {
+    setVisibleOperationalRowsCount(12);
+  }, [filteredOperationalRows.length]);
+
   function handlePeriodChange(next: Period) {
     setPeriod(next);
     const end = new Date();
@@ -415,7 +449,16 @@ export default function AdminReportsScreen() {
       Alert.alert('Rango inválido', 'La fecha inicial no puede ser mayor que la fecha final.');
       return;
     }
-    Alert.alert('Filtro aplicado', `Rango: ${dateFrom} → ${dateTo}`);
+    setPeriod('custom');
+  }
+
+  function clearOperationalFilters() {
+    setMacroRouteFilter('all');
+    setMicroRouteFilter('all');
+    setUserTypeFilter('all');
+    setMaterialFamilyFilter('all');
+    setAforadoFilter('all');
+    setOperatorCodeQuery('');
   }
 
   function openCalendar(target: 'from' | 'to') {
@@ -729,7 +772,7 @@ export default function AdminReportsScreen() {
       <View style={styles.applyDateRow}>
         <TouchableOpacity style={styles.applyDateBtn} onPress={applyDateFilter} activeOpacity={0.85}>
           <Ionicons name="funnel-outline" size={16} color={theme.colors.primary} />
-          <Text style={styles.applyDateText}>Aplicar filtro de fechas</Text>
+          <Text style={styles.applyDateText}>Usar este rango</Text>
         </TouchableOpacity>
       </View>
 
@@ -846,7 +889,57 @@ export default function AdminReportsScreen() {
                 placeholderTextColor={theme.colors.textMuted}
                 style={styles.operationalSearchInput}
               />
+              <View style={styles.operationalFilterSummaryRow}>
+                <Text style={styles.operationalFilterSummaryText}>
+                  {activeOperationalFilters.length === 0
+                    ? 'Sin filtros adicionales activos'
+                    : `${activeOperationalFilters.length} filtro(s) activo(s)`}
+                </Text>
+                {activeOperationalFilters.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.operationalClearFiltersBtn}
+                    onPress={clearOperationalFilters}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Limpiar filtros operativos"
+                  >
+                    <Text style={styles.operationalClearFiltersText}>Limpiar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {activeOperationalFilters.length > 0 && (
+                <View style={styles.operationalActiveFiltersWrap}>
+                  {activeOperationalFilters.map((filter) => (
+                    <View key={filter} style={styles.operationalActiveFilterBadge}>
+                      <Text style={styles.operationalActiveFilterBadgeText}>{filter}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
 
+              <TouchableOpacity
+                style={styles.operationalFilterToggle}
+                onPress={() => setOperationalFiltersExpanded((prev) => !prev)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  operationalFiltersExpanded
+                    ? 'Ocultar filtros operativos'
+                    : 'Mostrar filtros operativos'
+                }
+              >
+                <Text style={styles.operationalFilterToggleText}>
+                  {operationalFiltersExpanded ? 'Ocultar filtros avanzados' : 'Mostrar filtros avanzados'}
+                </Text>
+                <Ionicons
+                  name={operationalFiltersExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={theme.colors.primary}
+                />
+              </TouchableOpacity>
+
+              {operationalFiltersExpanded && (
+                <>
               <Text style={styles.operationalFilterLabel}>Macroruta</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.operationalChipRow}>
                 <TouchableOpacity
@@ -963,6 +1056,8 @@ export default function AdminReportsScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+                </>
+              )}
             </View>
 
             <Text style={styles.sectionTitle}>Resumen del reporte</Text>
@@ -989,7 +1084,13 @@ export default function AdminReportsScreen() {
               </View>
             </View>
 
-            <Text style={styles.sectionTitle}>Vista previa del reporte</Text>
+            <View style={styles.operationalPreviewHeader}>
+              <Text style={styles.sectionTitle}>Vista previa del reporte</Text>
+              <Text style={styles.operationalPreviewMeta}>
+                Mostrando {Math.min(visibleOperationalRows.length, filteredOperationalRows.length)} de{' '}
+                {filteredOperationalRows.length}
+              </Text>
+            </View>
             {filteredOperationalRows.length === 0 ? (
               <View style={styles.operationalEmptyCard}>
                 <Ionicons name="document-text-outline" size={28} color={theme.colors.textMuted} />
@@ -999,7 +1100,7 @@ export default function AdminReportsScreen() {
                 </Text>
               </View>
             ) : (
-              filteredOperationalRows.map((row) => (
+              visibleOperationalRows.map((row) => (
                 <View key={row.id} style={styles.operationalRecordCard}>
                   <View style={styles.operationalRecordHeader}>
                     <View>
@@ -1076,6 +1177,20 @@ export default function AdminReportsScreen() {
                   </View>
                 </View>
               ))
+            )}
+
+            {remainingOperationalRows > 0 && (
+              <TouchableOpacity
+                style={styles.operationalLoadMoreBtn}
+                onPress={() => setVisibleOperationalRowsCount((prev) => prev + 12)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={`Cargar ${Math.min(remainingOperationalRows, 12)} registros adicionales`}
+              >
+                <Text style={styles.operationalLoadMoreText}>
+                  Ver {Math.min(remainingOperationalRows, 12)} registros mas
+                </Text>
+              </TouchableOpacity>
             )}
 
             <Text style={styles.sectionTitle}>Catálogo de materiales</Text>
@@ -2328,6 +2443,25 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.surfaceAlt,
     marginBottom: theme.spacing.sm,
   },
+  operationalFilterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    minHeight: 44,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surfaceAlt,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  operationalFilterToggleText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.primaryDark,
+    fontWeight: theme.typography.weights.semibold,
+  },
   operationalFilterLabel: {
     fontSize: theme.typography.sizes.small,
     color: theme.colors.textSecondary,
@@ -2389,6 +2523,18 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.small,
     color: theme.colors.textSecondary,
   },
+  operationalPreviewHeader: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  operationalPreviewMeta: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+    marginTop: theme.spacing.lg,
+  },
   operationalEmptyCard: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -2417,6 +2563,21 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     padding: theme.spacing.lg,
     marginBottom: theme.spacing.md,
+  },
+  operationalLoadMoreBtn: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryLight,
+    marginBottom: theme.spacing.lg,
+  },
+  operationalLoadMoreText: {
+    fontSize: theme.typography.sizes.body,
+    color: theme.colors.primaryDark,
+    fontWeight: theme.typography.weights.semibold,
   },
   operationalRecordHeader: {
     flexDirection: 'row',
@@ -2460,6 +2621,46 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: theme.spacing.md,
+  },
+  operationalFilterSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+  },
+  operationalFilterSummaryText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.textSecondary,
+  },
+  operationalClearFiltersBtn: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  operationalClearFiltersText: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  operationalActiveFiltersWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+  },
+  operationalActiveFilterBadge: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.primaryLight,
+  },
+  operationalActiveFilterBadgeText: {
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.primaryDark,
+    fontWeight: theme.typography.weights.medium,
   },
   operationalFieldItem: {
     flexGrow: 1,
