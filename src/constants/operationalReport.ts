@@ -36,6 +36,8 @@ export interface OperationalMaterialCatalogItem {
   family: OperationalMaterialFamily;
   name: string;
   code: string;
+  /** Presente solo en ítems hijo (subcategoría). Apunta al código del padre. */
+  parentCode?: string;
 }
 
 export interface OperationalReportRecordInput {
@@ -162,8 +164,15 @@ export const OPERATIONAL_MATERIAL_CATALOG: OperationalMaterialCatalogItem[] = [
 
   { family: 'Plásticos', name: 'Acrílico', code: '301' },
   { family: 'Plásticos', name: 'Pasta', code: '302' },
+  { family: 'Plásticos', name: 'Vasija',   code: '302-A', parentCode: '302' },
+  { family: 'Plásticos', name: 'Vasija H', code: '302-B', parentCode: '302' },
+  { family: 'Plásticos', name: 'Canecas',  code: '302-C', parentCode: '302' },
+  { family: 'Plásticos', name: 'Canastas', code: '302-D', parentCode: '302' },
   { family: 'Plásticos', name: 'PET', code: '303' },
   { family: 'Plásticos', name: 'PVC', code: '304' },
+  { family: 'Plásticos', name: 'PVC T',    code: '304-A', parentCode: '304' },
+  { family: 'Plásticos', name: 'PVC B',    code: '304-B', parentCode: '304' },
+  { family: 'Plásticos', name: 'PVC Gris', code: '304-C', parentCode: '304' },
   { family: 'Plásticos', name: 'Plástico blanco', code: '305' },
   { family: 'Plásticos', name: 'Polietileno', code: '306' },
   { family: 'Plásticos', name: 'Soplado', code: '307' },
@@ -199,6 +208,23 @@ export function buildOperatorCode(name: string, identification: string) {
 
 export function getMicroRouteConfig(microRoute: string) {
   return OPERATIONAL_MICRO_ROUTES.find((item) => item.microRoute === microRoute);
+}
+
+/** Devuelve los ítems hijo de un material padre dado su código. */
+export function getMaterialChildren(parentCode: string): OperationalMaterialCatalogItem[] {
+  return OPERATIONAL_MATERIAL_CATALOG.filter((item) => item.parentCode === parentCode);
+}
+
+/** Indica si un material tiene subcategorías definidas. */
+export function hasChildren(code: string): boolean {
+  return OPERATIONAL_MATERIAL_CATALOG.some((item) => item.parentCode === code);
+}
+
+/** Filtra el catálogo para obtener solo ítems raíz (sin padre) de una familia. */
+export function getParentMaterials(family: OperationalMaterialFamily): OperationalMaterialCatalogItem[] {
+  return OPERATIONAL_MATERIAL_CATALOG.filter(
+    (item) => item.family === family && !item.parentCode,
+  );
 }
 
 export function toOperationalReportRecordInput(

@@ -14,41 +14,95 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@/src/theme/theme';
 import { formatDateTime } from '@/src/utils/date';
+import {
+  OPERATIONAL_MATERIAL_CATALOG,
+  getMaterialChildren,
+  type OperationalMaterialFamily,
+} from '@/src/constants/operationalReport';
 
 interface MaterialPrice {
-  id: string;
+  code: string;
   name: string;
+  isChild: boolean;
+  parentCode?: string;
   pricePerKg: number;
   icon: string;
   color: string;
   bgColor: string;
 }
 
-const INITIAL_PRICES: MaterialPrice[] = [
-  { id: '1', name: 'Plástico PET',    pricePerKg: 800,  icon: 'water-outline',         color: theme.colors.plastic,   bgColor: theme.colors.plasticBg },
-  { id: '2', name: 'Plástico PEAD',   pricePerKg: 600,  icon: 'water-outline',         color: theme.colors.plastic,   bgColor: theme.colors.plasticBg },
-  { id: '3', name: 'Cartón Corrugado',pricePerKg: 350,  icon: 'albums-outline',        color: theme.colors.cardboard, bgColor: theme.colors.cardboardBg },
-  { id: '4', name: 'Vidrio',          pricePerKg: 120,  icon: 'wine-outline',          color: theme.colors.glass,     bgColor: theme.colors.glassBg },
-  { id: '5', name: 'Aluminio',        pricePerKg: 2200, icon: 'hardware-chip-outline', color: theme.colors.metals,    bgColor: theme.colors.metalsBg },
-  { id: '6', name: 'Papel Archivo',   pricePerKg: 500,  icon: 'document-outline',      color: theme.colors.paper,     bgColor: theme.colors.paperBg },
-];
+const FAMILY_CONFIG: Record<string, { icon: string; color: string; bgColor: string }> = {
+  'Metales':        { icon: 'hardware-chip-outline', color: theme.colors.metals,    bgColor: theme.colors.metalsBg },
+  'Papel y cartón': { icon: 'albums-outline',        color: theme.colors.cardboard, bgColor: theme.colors.cardboardBg },
+  'Plásticos':      { icon: 'water-outline',         color: theme.colors.plastic,   bgColor: theme.colors.plasticBg },
+  'Vidrio':         { icon: 'wine-outline',          color: theme.colors.glass,     bgColor: theme.colors.glassBg },
+  'Textil':         { icon: 'shirt-outline',         color: theme.colors.textSecondary, bgColor: theme.colors.surfaceAlt },
+  'Madera':         { icon: 'leaf-outline',          color: theme.colors.textSecondary, bgColor: theme.colors.surfaceAlt },
+  'Especiales':     { icon: 'flash-outline',         color: theme.colors.warning,   bgColor: theme.colors.warningLight },
+};
+
+/** Precios semilla para ítems existentes antes de la migración */
+const SEED_PRICES: Record<string, number> = {
+  '101': 2200, // Aluminio
+  '201': 500,  // Archivo
+  '202': 350,  // Cartón
+  '303': 800,  // PET
+  '305': 600,  // Plástico blanco (antes PEAD)
+  '499': 120,  // Vidrio
+};
+
+function buildPriceList(): MaterialPrice[] {
+  const parents = OPERATIONAL_MATERIAL_CATALOG.filter((item) => !item.parentCode);
+  const result: MaterialPrice[] = [];
+
+  for (const parent of parents) {
+    const config = FAMILY_CONFIG[parent.family] ?? FAMILY_CONFIG['Especiales'];
+    const children = getMaterialChildren(parent.code);
+
+    if (children.length > 0) {
+      // Mostrar cada hijo con precio independiente
+      for (const child of children) {
+        result.push({
+          code: child.code,
+          name: child.name,
+          isChild: true,
+          parentCode: child.parentCode,
+          pricePerKg: SEED_PRICES[child.code] ?? 0,
+          ...config,
+        });
+      }
+    } else {
+      result.push({
+        code: parent.code,
+        name: parent.name,
+        isChild: false,
+        pricePerKg: SEED_PRICES[parent.code] ?? 0,
+        ...config,
+      });
+    }
+  }
+
+  return result;
+}
+
+const INITIAL_PRICES = buildPriceList();
 
 export default function AdminPricesScreen() {
   const router = useRouter();
   const [items, setItems] = useState(INITIAL_PRICES);
   const [drafts, setDrafts] = useState<Record<string, string>>(
-    Object.fromEntries(INITIAL_PRICES.map((m) => [m.id, String(m.pricePerKg)])),
+    Object.fromEntries(INITIAL_PRICES.map((m) => [m.code, String(m.pricePerKg)])),
   );
   const [updatedAt, setUpdatedAt] = useState(new Date());
 
   const hasChanges = useMemo(
-    () => items.some((m) => Number(drafts[m.id] ?? m.pricePerKg) !== m.pricePerKg),
+    () => items.some((m) => Number(drafts[m.code] ?? m.pricePerKg) !== m.pricePerKg),
     [items, drafts],
   );
 
   function savePrices() {
     const next = items.map((m) => {
-      const parsed = Number((drafts[m.id] ?? '').replace(',', '.'));
+      const parsed = Number((drafts[m.code] ?? '').replace(',', '.'));
       if (!Number.isFinite(parsed) || parsed < 0) {
         throw new Error(`Precio inválido para ${m.name}`);
       }
@@ -87,21 +141,29 @@ export default function AdminPricesScreen() {
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {items.map((item) => (
-          <View key={item.id} style={styles.card}>
+          <View
+            key={item.code}
+            style={[styles.card, item.isChild && styles.cardChild]}
+          >
+            {item.isChild && <View style={styles.childIndicator} />}
             <View style={[styles.iconBg, { backgroundColor: item.bgColor }]}>
-              <Ionicons name={item.icon as any} size={20} color={item.color} />
+              <Ionicons name={item.icon as any} size={item.isChild ? 16 : 20} color={item.color} />
             </View>
             <View style={styles.info}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.sub}>Valor por kilogramo</Text>
+              <Text style={[styles.name, item.isChild && styles.nameChild]}>{item.name}</Text>
+              <Text style={styles.sub}>
+                {item.isChild ? `Subcategoría · ${item.parentCode}` : `Código ${item.code}`}
+              </Text>
             </View>
             <View style={styles.priceInputWrap}>
               <Text style={styles.prefix}>$</Text>
               <TextInput
                 style={styles.priceInput}
                 keyboardType="numeric"
-                value={drafts[item.id]}
-                onChangeText={(v) => setDrafts((prev) => ({ ...prev, [item.id]: v.replace(/[^\d]/g, '') }))}
+                value={drafts[item.code]}
+                onChangeText={(v) =>
+                  setDrafts((prev) => ({ ...prev, [item.code]: v.replace(/[^\d]/g, '') }))
+                }
                 placeholder="0"
                 placeholderTextColor={theme.colors.textMuted}
               />
@@ -166,6 +228,20 @@ const styles = StyleSheet.create({
     padding: theme.spacing.md,
     marginBottom: theme.spacing.sm,
     gap: theme.spacing.md,
+  },
+  cardChild: {
+    marginLeft: theme.spacing.lg,
+    borderColor: theme.colors.separator,
+    backgroundColor: theme.colors.surfaceAlt,
+  },
+  childIndicator: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderRadius: 2,
+    backgroundColor: theme.colors.border,
+  },
+  nameChild: {
+    fontSize: theme.typography.sizes.small,
   },
   iconBg: {
     width: 40,

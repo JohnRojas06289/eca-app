@@ -150,11 +150,12 @@ export function generatePDFHtml(data: ExportData): string {
         (row) => `
           <tr>
             <td>${new Date(row.createdAt).toLocaleDateString('es-CO')}</td>
-            <td>${row.nuap}</td>
-            <td>${row.nueca}</td>
-            <td>${row.macroRoute}</td>
-            <td>${row.microRoute}</td>
-            <td>${row.linkedUsersCount}${row.isAforado ? ' (Aforado)' : ''}</td>
+            <td class="col-nuap">${row.nuap}</td>
+            <td class="col-nuap">${row.nueca}</td>
+            <td class="col-num">${row.macroRoute}</td>
+            <td class="col-num">${row.microRoute}</td>
+            <td class="col-num">${row.linkedUsersCount}</td>
+            <td class="col-num">${row.isAforado ? 'Aforado' : 'No aforado'}</td>
             <td>${row.userType}</td>
             <td>${row.operatorCode}</td>
             <td>${row.operatorName}</td>
@@ -189,6 +190,8 @@ export function generatePDFHtml(data: ExportData): string {
           th, td { border: 1px solid #cbd5e1; padding: 6px; vertical-align: top; word-wrap: break-word; }
           th { background: #e2e8f0; font-size: 9px; text-transform: uppercase; }
           td { font-size: 10px; }
+          .col-nuap { white-space: nowrap; text-align: center; }
+          .col-num  { text-align: center; }
           .footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #cbd5e1; color: #64748b; text-align: center; font-size: 10px; }
         </style>
       </head>
@@ -204,11 +207,12 @@ export function generatePDFHtml(data: ExportData): string {
           <thead>
             <tr>
               <th>Fecha</th>
-              <th>NUAP</th>
-              <th>NUECA</th>
-              <th>Macro</th>
-              <th>Microruta</th>
-              <th>Usuarios vinculados</th>
+              <th class="col-nuap">NUAP</th>
+              <th class="col-nuap">NUECA</th>
+              <th class="col-num">Macro</th>
+              <th class="col-num">Microruta</th>
+              <th class="col-num">Usuarios vinculados</th>
+              <th>¿Aforado?</th>
               <th>Tipo usuario</th>
               <th>Código operador</th>
               <th>Nombre operador</th>

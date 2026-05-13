@@ -24,6 +24,8 @@ import {
   OPERATIONAL_VEHICLE_TYPES,
   buildOperatorCode,
   getMicroRouteConfig,
+  getMaterialChildren,
+  getOperationalMaterialByCode,
   type OperationalMaterialFamily,
   type OperationalUserType,
   type OperationalVehicleType,
@@ -84,6 +86,7 @@ export default function AdminNewWeighingScreen() {
   );
   const [loading, setLoading] = useState(false);
   const [cedulaSearch, setCedulaSearch] = useState('');
+  const [showSubfamilies, setShowSubfamilies] = useState(false);
 
   const recyclers = useMemo(
     () => users.filter((user) => user.role === 'recycler'),
@@ -91,24 +94,36 @@ export default function AdminNewWeighingScreen() {
   );
 
   const filteredRecyclers = useMemo(() => {
-    const q = cedulaSearch.trim().replace(/\D/g, '');
+    const q = cedulaSearch.trim().toLowerCase();
     if (!q) return recyclers;
-    return recyclers.filter((r) => {
-      const last3 = String(r.cedula ?? '').replace(/\D/g, '').slice(-3);
-      return last3.includes(q);
-    });
+    return recyclers.filter((r) =>
+      String(r.cedula ?? '').toLowerCase().includes(q) ||
+      String(r.name ?? '').toLowerCase().includes(q),
+    );
   }, [recyclers, cedulaSearch]);
 
   const selectedRecycler =
     recyclers.find((recycler) => recycler.id === form.recyclerId) ?? null;
   const microRouteConfig = getMicroRouteConfig(form.microRoute);
   const macroRoute = microRouteConfig?.macroRoute ?? '1';
+  // Familias disponibles en el selector — excluye 'Especiales' del menú principal
   const materialFamilyOptions = Array.from(
-    new Set(OPERATIONAL_MATERIAL_CATALOG.map((item) => item.family)),
+    new Set(
+      OPERATIONAL_MATERIAL_CATALOG
+        .filter((item) => item.family !== 'Especiales' && !item.parentCode)
+        .map((item) => item.family),
+    ),
   );
+  // Solo ítems raíz (sin parentCode) de la familia seleccionada
   const materialOptions = OPERATIONAL_MATERIAL_CATALOG.filter(
-    (item) => item.family === form.materialFamily,
+    (item) => item.family === form.materialFamily && !item.parentCode,
   );
+  // Código raíz para buscar subfamilias (si el código actual es hijo, sube al padre)
+  const effectiveParentCode = form.materialCode.includes('-')
+    ? form.materialCode.split('-')[0]
+    : form.materialCode;
+  const currentMaterialChildren = getMaterialChildren(effectiveParentCode);
+  const currentParentMaterial = getOperationalMaterialByCode(effectiveParentCode);
 
   const linkedUsersCountValue = Number(form.linkedUsersCount.trim());
   const quantityKg = parseDecimalField(form.quantityKg);
@@ -150,9 +165,10 @@ export default function AdminNewWeighingScreen() {
 
   function handleMaterialFamilyChange(nextFamily: OperationalMaterialFamily) {
     const nextMaterialCode =
-      OPERATIONAL_MATERIAL_CATALOG.find((item) => item.family === nextFamily)?.code ??
+      OPERATIONAL_MATERIAL_CATALOG.find((item) => item.family === nextFamily && !item.parentCode)?.code ??
       form.materialCode;
     setForm((prev) => ({ ...prev, materialFamily: nextFamily, materialCode: nextMaterialCode }));
+    setShowSubfamilies(false);
   }
 
   const canSubmit =
@@ -319,6 +335,7 @@ export default function AdminNewWeighingScreen() {
             placeholderTextColor={theme.colors.textMuted}
             style={styles.input}
           />
+          <Text style={styles.fieldHint}>(dd/mm/aaaa)</Text>
 
           {/* ── Operador ─────────────────────────────────── */}
           <Text style={styles.sectionTitle}>Operador</Text>
@@ -327,10 +344,10 @@ export default function AdminNewWeighingScreen() {
             <TextInput
               value={cedulaSearch}
               onChangeText={setCedulaSearch}
-              placeholder="Buscar por últimos 3 dígitos de cédula"
+              placeholder="Buscar por cédula o nombre"
               placeholderTextColor={theme.colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={3}
+              keyboardType="default"
+              autoCapitalize="none"
               style={styles.searchInput}
             />
             {cedulaSearch !== '' && (
@@ -533,25 +550,72 @@ export default function AdminNewWeighingScreen() {
                 </TouchableOpacity>
               );
             })}
+            {/* Botón + reemplaza el chip estático "Especiales" */}
+            <TouchableOpacity
+              style={[styles.chip, showSubfamilies && styles.chipActive]}
+              onPress={() => setShowSubfamilies((v) => !v)}
+            >
+              <Ionicons
+                name="add"
+                size={16}
+                color={showSubfamilies ? theme.colors.textOnPrimary : theme.colors.textSecondary}
+              />
+            </TouchableOpacity>
           </ScrollView>
 
           <Text style={styles.fieldLabel}>Código de material</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {materialOptions.map((material) => {
-              const selected = material.code === form.materialCode;
+              const selected = effectiveParentCode === material.code;
               return (
                 <TouchableOpacity
                   key={material.code}
                   style={[styles.chip, selected && styles.chipActive]}
-                  onPress={() => updateForm('materialCode', material.code)}
+                  onPress={() => {
+                    updateForm('materialCode', material.code);
+                    setShowSubfamilies(false);
+                  }}
                 >
                   <Text style={[styles.chipText, selected && styles.chipTextActive]}>
-                    {material.code}
+                    {material.code} · {material.name}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
+
+          {/* ── Subfamilias (panel desplegable vía botón +) ── */}
+          {showSubfamilies && (
+            <View style={styles.subfamilyPanel}>
+              {currentMaterialChildren.length > 0 ? (
+                <>
+                  <Text style={styles.subfamilyLabel}>
+                    Subcategoría de {currentParentMaterial?.name ?? effectiveParentCode}
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+                    {currentMaterialChildren.map((child) => {
+                      const selected = child.code === form.materialCode;
+                      return (
+                        <TouchableOpacity
+                          key={child.code}
+                          style={[styles.chip, selected && styles.chipActive]}
+                          onPress={() => updateForm('materialCode', child.code)}
+                        >
+                          <Text style={[styles.chipText, selected && styles.chipTextActive]}>
+                            {child.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              ) : (
+                <Text style={styles.emptyHint}>
+                  Este material no tiene subcategorías definidas.
+                </Text>
+              )}
+            </View>
+          )}
 
           {/* ── Pesaje ───────────────────────────────────── */}
           <Text style={styles.sectionTitle}>Pesaje</Text>
@@ -1107,4 +1171,24 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.weights.medium,
   },
   submitBtn: { marginTop: theme.spacing.sm },
+  fieldHint: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    marginTop: 4,
+    marginBottom: theme.spacing.sm,
+  },
+  subfamilyPanel: {
+    backgroundColor: theme.colors.surfaceAlt,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  subfamilyLabel: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.sm,
+  },
 });
