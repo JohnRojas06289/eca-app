@@ -136,7 +136,19 @@ function withTimeout(timeoutMs, label) {
   };
 }
 
-app.use(cors());
+const corsOptions = {
+  origin: [
+    'https://eca-app-three.vercel.app',
+    'http://localhost:8081',
+    'http://localhost:3000',
+  ],
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false,
+};
+
+app.options('*', cors(corsOptions));
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (_req, res) => {
