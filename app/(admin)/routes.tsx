@@ -1083,8 +1083,8 @@ const styles = StyleSheet.create({
 
   fab: {
     position: 'absolute',
-    // chatbot: bottom 90, height 56 → top en 146; +8px de separación = 154
-    bottom: 154,
+    // chatbot: bottom 90, height 56 → top en 146; +4px de separación = 150
+    bottom: 150,
     right: theme.spacing.screen,
     width: 56,
     height: 56,
@@ -1094,15 +1094,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...theme.shadows.md,
   },
-  // Web desktop: chatbot en calc(28px + safe-area) + 56px alto + 8px gap
+  // Web desktop: chatbot en calc(28px + safe-area) + 56px alto + 4px gap
   fabWeb: {
-    bottom: 'calc(92px + env(safe-area-inset-bottom, 0px))' as any,
+    bottom: 'calc(88px + env(safe-area-inset-bottom, 0px))' as any,
     right: 28,
     cursor: 'pointer' as any,
   },
-  // Web mobile: chatbot en calc(80px + safe-area) + 56px alto + 8px gap
+  // Web mobile: chatbot en calc(80px + safe-area) + 56px alto + 4px gap
   fabWebMobile: {
-    bottom: 'calc(144px + env(safe-area-inset-bottom, 0px))' as any,
+    bottom: 'calc(140px + env(safe-area-inset-bottom, 0px))' as any,
   },
 
   modalOverlay: {
