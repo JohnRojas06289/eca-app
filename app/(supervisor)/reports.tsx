@@ -165,11 +165,11 @@ export default function SupervisorReportsScreen() {
       {period === 'custom' && (
         <View style={styles.customDateContainer}>
           <TouchableOpacity style={styles.dateInput}>
-            <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+            <Ionicons name="calendar-outline" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.dateText}>Fecha Inicio: {customStartLabel}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.dateInput}>
-            <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
+            <Ionicons name="calendar-outline" size={18} color={theme.colors.textSecondary} />
             <Text style={styles.dateText}>Fecha Fin: {customEndLabel}</Text>
           </TouchableOpacity>
         </View>
@@ -460,8 +460,11 @@ const styles = StyleSheet.create({
 
   customDateContainer: {
     flexDirection: 'row',
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'flex-start',
     paddingHorizontal: theme.spacing.screen,
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
     marginBottom: theme.spacing.md,
   },
   dateInput: {
@@ -472,11 +475,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
   dateText: {
+    flex: 1,
     fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.medium,
     color: theme.colors.textPrimary,
   },
 

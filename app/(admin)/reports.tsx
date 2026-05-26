@@ -759,23 +759,6 @@ export default function AdminReportsScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.customDateContainer}>
-        <TouchableOpacity style={styles.dateInput} onPress={() => openCalendar('from')} activeOpacity={0.85}>
-          <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-          <Text style={styles.dateTextInput}>Inicio: {dateFrom}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateInput} onPress={() => openCalendar('to')} activeOpacity={0.85}>
-          <Ionicons name="calendar-outline" size={20} color={theme.colors.textSecondary} />
-          <Text style={styles.dateTextInput}>Fin: {dateTo}</Text>
-        </TouchableOpacity>
-      </View>
-      <View style={styles.applyDateRow}>
-        <TouchableOpacity style={styles.applyDateBtn} onPress={applyDateFilter} activeOpacity={0.85}>
-          <Ionicons name="funnel-outline" size={16} color={theme.colors.primary} />
-          <Text style={styles.applyDateText}>Usar este rango</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* ── Filtro de período ─────────────────────────────── */}
       <ScrollView
         style={styles.periodContainer}
@@ -799,6 +782,27 @@ export default function AdminReportsScreen() {
           );
         })}
       </ScrollView>
+
+      {period === 'custom' && (
+        <>
+          <View style={styles.customDateContainer}>
+            <TouchableOpacity style={styles.dateInput} onPress={() => openCalendar('from')} activeOpacity={0.85}>
+              <Ionicons name="calendar-outline" size={18} color={theme.colors.textSecondary} />
+              <Text style={styles.dateTextInput}>Inicio: {dateFrom}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.dateInput} onPress={() => openCalendar('to')} activeOpacity={0.85}>
+              <Ionicons name="calendar-outline" size={18} color={theme.colors.textSecondary} />
+              <Text style={styles.dateTextInput}>Fin: {dateTo}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.applyDateRow}>
+            <TouchableOpacity style={styles.applyDateBtn} onPress={applyDateFilter} activeOpacity={0.85}>
+              <Ionicons name="funnel-outline" size={16} color={theme.colors.primary} />
+              <Text style={styles.applyDateText}>Usar este rango</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -2111,9 +2115,13 @@ const styles = StyleSheet.create({
 
   customDateContainer: {
     flexDirection: 'row',
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'flex-start',
     paddingHorizontal: theme.spacing.screen,
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+    marginBottom: theme.spacing.xs,
   },
   dateInput: {
     flex: 1,
@@ -2123,16 +2131,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
-    padding: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
     gap: theme.spacing.sm,
   },
   dateTextInput: {
     flex: 1,
     fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.medium,
     color: theme.colors.textPrimary,
     paddingVertical: 0,
   },
   applyDateRow: {
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'flex-start',
     paddingHorizontal: theme.spacing.screen,
     marginBottom: theme.spacing.md,
   },
