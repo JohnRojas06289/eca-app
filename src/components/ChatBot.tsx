@@ -49,24 +49,46 @@ const SUGGESTED_QUESTIONS: Record<string, string[]> = {
 };
 
 const PRICE_REFERENCE = [
-  { name: 'Cobre', price: '$8.000 COP/kg' },
-  { name: 'Aluminio', price: '$2.200 COP/kg' },
-  { name: 'Plástico PET', price: '$800 COP/kg' },
-  { name: 'Plástico PEAD', price: '$600 COP/kg' },
-  { name: 'Papel Archivo', price: '$500 COP/kg' },
-  { name: 'Chatarra Ferrosa', price: '$400 COP/kg' },
-  { name: 'Cartón Corrugado', price: '$350 COP/kg' },
-  { name: 'Vidrio Transparente', price: '$120 COP/kg' },
-  { name: 'Vidrio de Color', price: '$80 COP/kg' },
-  { name: 'Orgánicos', price: '$0 COP/kg' },
+  { code: '101', name: 'Aluminio', price: 2200 },
+  { code: '102', name: 'Chatarra', price: 0 },
+  { code: '103', name: 'Cobre', price: 0 },
+  { code: '104', name: 'Bronce', price: 0 },
+  { code: '105', name: 'Antimonio', price: 0 },
+  { code: '106', name: 'Acero', price: 0 },
+  { code: '199', name: 'Otros metales', price: 0 },
+  { code: '201', name: 'Archivo', price: 500 },
+  { code: '202', name: 'Cartón', price: 350 },
+  { code: '203', name: 'Cubetas o paneles', price: 0 },
+  { code: '204', name: 'Periódico', price: 0 },
+  { code: '205', name: 'Plegadiza', price: 0 },
+  { code: '206', name: 'Tetra Pack', price: 0 },
+  { code: '207', name: 'Plastificado', price: 0 },
+  { code: '208', name: 'Kraft', price: 0 },
+  { code: '299', name: 'Otros papel y cartón', price: 0 },
+  { code: '301', name: 'Acrílico', price: 0 },
+  { code: '302', name: 'Vasija / Vasija H / Canecas / Canastas', price: 0 },
+  { code: '303', name: 'PET', price: 800 },
+  { code: '304', name: 'PVC T / PVC B / PVC Gris', price: 0 },
+  { code: '305', name: 'Plástico blanco', price: 600 },
+  { code: '306', name: 'Polietileno', price: 0 },
+  { code: '307', name: 'Soplado', price: 0 },
+  { code: '308', name: 'Polipropileno', price: 0 },
+  { code: '399', name: 'Otros plásticos', price: 0 },
+  { code: '499', name: 'Otros vidrios', price: 120 },
+  { code: '599', name: 'Otros textiles', price: 0 },
+  { code: '699', name: 'Otros maderables', price: 0 },
+  { code: '701', name: 'Residuos de aparatos eléctricos', price: 0 },
+  { code: '799', name: 'Otros especiales', price: 0 },
 ];
 
 function buildPriceReply() {
-  const top = PRICE_REFERENCE.slice(0, 3)
-    .map((item, index) => `${index + 1}. ${item.name}: ${item.price}`)
+  const top = [...PRICE_REFERENCE]
+    .sort((a, b) => b.price - a.price)
+    .slice(0, 3)
+    .map((item, index) => `${index + 1}. ${item.name} (Código ${item.code}): $${item.price.toLocaleString('es-CO')} COP/kg`)
     .join('\n');
 
-  return `Esta semana, los materiales con mejor precio son:\n${top}\n\nEl precio más alto es Cobre con $8.000 COP/kg.`;
+  return `Esta semana, los materiales con mejor precio son:\n${top}`;
 }
 
 // ── Respuestas demo quemadas por rol ─────────────────────────────────────────
@@ -104,7 +126,7 @@ const DEMO_RESPONSES: Record<string, Array<{ keywords: string[]; reply: string }
     },
     {
       keywords: ['generan', 'material', 'semana', 'más valor'],
-      reply: 'Con las tarifas vigentes, los que más valor generan hoy son Cobre ($8.000/kg) y Aluminio ($2.200/kg). Después vienen Plástico PET ($800/kg) y Plástico PEAD ($600/kg).',
+      reply: 'Con el catálogo actual, los 3 con mejor precio son Aluminio (Código 101, $2.200/kg), PET (Código 303, $800/kg) y Plástico blanco (Código 305, $600/kg).',
     },
   ],
   supervisor: [

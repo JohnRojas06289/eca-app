@@ -65,17 +65,49 @@ Reglas de respuesta:
 - Nunca inventes cifras ni supongas datos que no tienes`;
 
 const PRICE_REFERENCE = [
-  'Plástico PET: $800 COP/kg',
-  'Plástico PEAD: $600 COP/kg',
-  'Cartón Corrugado: $350 COP/kg',
-  'Vidrio Transparente: $120 COP/kg',
-  'Vidrio de Color: $80 COP/kg',
-  'Aluminio: $2.200 COP/kg',
-  'Cobre: $8.000 COP/kg',
-  'Chatarra Ferrosa: $400 COP/kg',
-  'Papel Archivo: $500 COP/kg',
-  'Orgánicos: $0 COP/kg',
-].join('\n- ');
+  { code: '101', name: 'Aluminio', price: 2200 },
+  { code: '102', name: 'Chatarra', price: 0 },
+  { code: '103', name: 'Cobre', price: 0 },
+  { code: '104', name: 'Bronce', price: 0 },
+  { code: '105', name: 'Antimonio', price: 0 },
+  { code: '106', name: 'Acero', price: 0 },
+  { code: '199', name: 'Otros metales', price: 0 },
+  { code: '201', name: 'Archivo', price: 500 },
+  { code: '202', name: 'Cartón', price: 350 },
+  { code: '203', name: 'Cubetas o paneles', price: 0 },
+  { code: '204', name: 'Periódico', price: 0 },
+  { code: '205', name: 'Plegadiza', price: 0 },
+  { code: '206', name: 'Tetra Pack', price: 0 },
+  { code: '207', name: 'Plastificado', price: 0 },
+  { code: '208', name: 'Kraft', price: 0 },
+  { code: '299', name: 'Otros papel y cartón', price: 0 },
+  { code: '301', name: 'Acrílico', price: 0 },
+  { code: '302', name: 'Vasija / Vasija H / Canecas / Canastas', price: 0 },
+  { code: '303', name: 'PET', price: 800 },
+  { code: '304', name: 'PVC T / PVC B / PVC Gris', price: 0 },
+  { code: '305', name: 'Plástico blanco', price: 600 },
+  { code: '306', name: 'Polietileno', price: 0 },
+  { code: '307', name: 'Soplado', price: 0 },
+  { code: '308', name: 'Polipropileno', price: 0 },
+  { code: '399', name: 'Otros plásticos', price: 0 },
+  { code: '499', name: 'Otros vidrios', price: 120 },
+  { code: '599', name: 'Otros textiles', price: 0 },
+  { code: '699', name: 'Otros maderables', price: 0 },
+  { code: '701', name: 'Residuos de aparatos eléctricos', price: 0 },
+  { code: '799', name: 'Otros especiales', price: 0 },
+];
+
+const PRICE_REFERENCE_TEXT = PRICE_REFERENCE
+  .map((item) => `${item.code} - ${item.name}: $${item.price.toLocaleString('es-CO')} COP/kg`)
+  .join('\n- ');
+
+const TOP_PRICE_ITEMS = [...PRICE_REFERENCE]
+  .sort((a, b) => b.price - a.price)
+  .slice(0, 3);
+
+const TOP_PRICE_TEXT = TOP_PRICE_ITEMS
+  .map((item, index) => `${index + 1}. ${item.name} (Código ${item.code}): $${item.price.toLocaleString('es-CO')} COP/kg`)
+  .join('\n');
 
 const ROLE_CONTEXT = {
   admin: `Estás hablando con CARLOS, el ADMINISTRADOR de la ECA.
@@ -97,7 +129,7 @@ Usa lenguaje muy simple y amigable. Sin tecnicismos. Motívalo a reciclar.`,
 
 function buildSystemPrompt(userRole) {
   const roleCtx = ROLE_CONTEXT[userRole] ?? `Estás hablando con un usuario de la aplicación ZipaRecicla.`;
-  return `${SYSTEM_PROMPT_BASE}\n\nTarifas vigentes de referencia:\n- ${PRICE_REFERENCE}\n\nContexto del usuario actual:\n${roleCtx}`;
+  return `${SYSTEM_PROMPT_BASE}\n\nTarifas vigentes de referencia:\n- ${PRICE_REFERENCE_TEXT}\n\nTop 3 materiales con mejor precio:\n${TOP_PRICE_TEXT}\n\nContexto del usuario actual:\n${roleCtx}`;
 }
 
 function normalizeRole(value, fallback = 'citizen') {
