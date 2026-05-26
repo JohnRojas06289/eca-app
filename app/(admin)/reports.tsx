@@ -1851,7 +1851,7 @@ export default function AdminReportsScreen() {
               <Text style={styles.modalSubtitle}>Formato de archivo</Text>
               <View style={styles.formatRow}>
                 <SelectableCard
-                  layout="grid"
+                  layout="list"
                   label="PDF"
                   icon="document-text-outline"
                   selected={exportFormat === 'pdf'}
@@ -1859,7 +1859,7 @@ export default function AdminReportsScreen() {
                   style={styles.formatCard}
                 />
                 <SelectableCard
-                  layout="grid"
+                  layout="list"
                   label="Excel (CSV)"
                   icon="grid-outline"
                   selected={exportFormat === 'csv'}
@@ -3004,13 +3004,11 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   formatRow: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
+    flexDirection: 'column',
+    gap: theme.spacing.sm,
     marginBottom: theme.spacing.md,
   },
-  formatCard: {
-    flex: 1,
-  },
+  formatCard: {},
   checkboxGroup: {
     gap: theme.spacing.sm,
   },
