@@ -1400,7 +1400,7 @@ export default function AdminReportsScreen() {
         animationType="fade"
         onRequestClose={() => setCalendarVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.calendarOverlay}>
           <View style={styles.calendarModal}>
             <View style={styles.calendarHeader}>
               <Text style={styles.calendarTitle}>
@@ -2888,11 +2888,19 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
   },
 
+  calendarOverlay: {
+    flex: 1,
+    backgroundColor: theme.colors.overlay,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.screen,
+  },
   calendarModal: {
     backgroundColor: theme.colors.surface,
     borderRadius: theme.radius.xl,
     padding: theme.spacing.lg,
-    marginHorizontal: theme.spacing.screen,
+    width: '100%',
+    maxWidth: 320,
   },
   calendarHeader: {
     flexDirection: 'row',
