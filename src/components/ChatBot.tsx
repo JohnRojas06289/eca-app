@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     ...theme.shadows.lg,
   },
   fabWeb: {
-    bottom: 28,
+    bottom: 'calc(28px + env(safe-area-inset-bottom, 0px))' as any,
     right: 28,
     cursor: 'pointer' as any,
   },

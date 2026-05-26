@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   rootWeb: {
     width: '100%',
     maxWidth: webLayout.appMaxWidth,
-    minHeight: '100vh' as any,
+    minHeight: '100dvh' as any,
     alignSelf: 'center',
   },
   loadingContainer: {
