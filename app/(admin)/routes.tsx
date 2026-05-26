@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -77,6 +78,8 @@ const EMPTY_FORM: RouteForm = {
 
 export default function AdminRoutesScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isMobileWeb = Platform.OS === 'web' && width < 900;
   const { routeConfigs, setRouteConfigs } = useOperationalReports();
   const [activeTab, setActiveTab] = useState<'general' | 'operational'>('operational');
   const [search, setSearch] = useState('');
@@ -538,7 +541,7 @@ export default function AdminRoutesScreen() {
       </ScrollView>
 
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, Platform.OS === 'web' && styles.fabWeb, isMobileWeb && styles.fabWebMobile]}
         onPress={activeTab === 'general' ? openCreate : openOpCreate}
         activeOpacity={0.85}
       >
@@ -1080,7 +1083,8 @@ const styles = StyleSheet.create({
 
   fab: {
     position: 'absolute',
-    bottom: 146,
+    // chatbot: bottom 90, height 56 → top en 146; +8px de separación = 154
+    bottom: 154,
     right: theme.spacing.screen,
     width: 56,
     height: 56,
@@ -1089,6 +1093,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...theme.shadows.md,
+  },
+  // Web desktop: chatbot en calc(28px + safe-area) + 56px alto + 8px gap
+  fabWeb: {
+    bottom: 'calc(92px + env(safe-area-inset-bottom, 0px))' as any,
+    right: 28,
+    cursor: 'pointer' as any,
+  },
+  // Web mobile: chatbot en calc(80px + safe-area) + 56px alto + 8px gap
+  fabWebMobile: {
+    bottom: 'calc(144px + env(safe-area-inset-bottom, 0px))' as any,
   },
 
   modalOverlay: {
