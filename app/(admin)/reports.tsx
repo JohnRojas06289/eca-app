@@ -3004,11 +3004,13 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   formatRow: {
-    flexDirection: 'column',
-    gap: theme.spacing.sm,
+    flexDirection: 'row',
+    gap: theme.spacing.md,
     marginBottom: theme.spacing.md,
   },
-  formatCard: {},
+  formatCard: {
+    flex: 1,
+  },
   checkboxGroup: {
     gap: theme.spacing.sm,
   },
