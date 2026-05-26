@@ -11,6 +11,7 @@ import {
   Platform,
   ActivityIndicator,
   Animated,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -214,6 +215,8 @@ function TypingIndicator() {
 // ── Componente principal ─────────────────────────────────────────────────────
 export function ChatBot() {
   const { isAuthenticated, user } = useAuth();
+  const { width } = useWindowDimensions();
+  const isMobileWeb = Platform.OS === 'web' && width < 900;
   const [isOpen, setIsOpen]   = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput]     = useState('');
@@ -333,7 +336,7 @@ export function ChatBot() {
     <>
       {/* ── FAB flotante ───────────────────────────────────── */}
       <TouchableOpacity
-        style={[styles.fab, Platform.OS === 'web' && styles.fabWeb]}
+        style={[styles.fab, Platform.OS === 'web' && styles.fabWeb, isMobileWeb && styles.fabWebMobile]}
         onPress={openChat}
         activeOpacity={0.85}
       >
@@ -462,6 +465,10 @@ const styles = StyleSheet.create({
     bottom: 'calc(28px + env(safe-area-inset-bottom, 0px))' as any,
     right: 28,
     cursor: 'pointer' as any,
+  },
+  // En mobile web el tab bar tiene 64px de alto → subimos el FAB por encima
+  fabWebMobile: {
+    bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))' as any,
   },
 
   // ── Modal overlay ────────────────────────────────────────
