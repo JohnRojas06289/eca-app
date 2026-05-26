@@ -1838,6 +1838,7 @@ export default function AdminReportsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            {/* Header siempre visible */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Configurar Exportación</Text>
               <TouchableOpacity onPress={() => setExportModalVisible(false)}>
@@ -1845,152 +1846,156 @@ export default function AdminReportsScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalSubtitle}>Formato de archivo</Text>
-            <View style={styles.formatRow}>
-              <SelectableCard
-                layout="grid"
-                label="PDF"
-                icon="document-text-outline"
-                selected={exportFormat === 'pdf'}
-                onPress={() => setExportFormat('pdf')}
-                style={styles.formatCard}
-              />
-              <SelectableCard
-                layout="grid"
-                label="Excel (CSV)"
-                icon="grid-outline"
-                selected={exportFormat === 'csv'}
-                onPress={() => setExportFormat('csv')}
-                style={styles.formatCard}
-              />
-            </View>
+            {/* Cuerpo scrollable para que el header no se corte */}
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.exportScrollBody}>
+              <Text style={styles.modalSubtitle}>Formato de archivo</Text>
+              <View style={styles.formatRow}>
+                <SelectableCard
+                  layout="grid"
+                  label="PDF"
+                  icon="document-text-outline"
+                  selected={exportFormat === 'pdf'}
+                  onPress={() => setExportFormat('pdf')}
+                  style={styles.formatCard}
+                />
+                <SelectableCard
+                  layout="grid"
+                  label="Excel (CSV)"
+                  icon="grid-outline"
+                  selected={exportFormat === 'csv'}
+                  onPress={() => setExportFormat('csv')}
+                  style={styles.formatCard}
+                />
+              </View>
 
-            <Text style={styles.modalSubtitle}>Información a incluir</Text>
-            {reportMode === 'sui' && (
-              <Text style={styles.suiExportHint}>
-                En modo SUI se incluye automáticamente la sección de campos requeridos SUI.
-              </Text>
-            )}
-            {reportMode === 'operational' && (
-              <Text style={styles.suiExportHint}>
-                En el reporte operativo se exportan los filtros aplicados y puedes incluir resumen,
-                detalle de registros y catálogo de materiales.
-              </Text>
-            )}
-
-            <View style={styles.checkboxGroup}>
-              {reportMode === 'operational' ? (
-                <>
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, exportFields.summary && styles.checkboxRowActive]}
-                    onPress={() => toggleField('summary')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={exportFields.summary ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={exportFields.summary ? theme.colors.primary : theme.colors.textMuted}
-                    />
-                    <Text style={[styles.checkboxLabel, exportFields.summary && styles.checkboxLabelActive]}>
-                      Resumen operativo
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, exportFields.records && styles.checkboxRowActive]}
-                    onPress={() => toggleField('records')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={exportFields.records ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={exportFields.records ? theme.colors.primary : theme.colors.textMuted}
-                    />
-                    <Text style={[styles.checkboxLabel, exportFields.records && styles.checkboxLabelActive]}>
-                      Registros detallados
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, exportFields.catalog && styles.checkboxRowActive]}
-                    onPress={() => toggleField('catalog')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={exportFields.catalog ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={exportFields.catalog ? theme.colors.primary : theme.colors.textMuted}
-                    />
-                    <Text style={[styles.checkboxLabel, exportFields.catalog && styles.checkboxLabelActive]}>
-                      Catálogo de materiales
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, exportFields.kpi && styles.checkboxRowActive]}
-                    onPress={() => toggleField('kpi')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={exportFields.kpi ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={exportFields.kpi ? theme.colors.primary : theme.colors.textMuted}
-                    />
-                    <Text style={[styles.checkboxLabel, exportFields.kpi && styles.checkboxLabelActive]}>
-                      Métricas Globales (KPIs)
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, exportFields.financial && styles.checkboxRowActive]}
-                    onPress={() => toggleField('financial')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={exportFields.financial ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={exportFields.financial ? theme.colors.primary : theme.colors.textMuted}
-                    />
-                    <Text style={[styles.checkboxLabel, exportFields.financial && styles.checkboxLabelActive]}>
-                      Comparativo Compras / Ventas
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, exportFields.materials && styles.checkboxRowActive]}
-                    onPress={() => toggleField('materials')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={exportFields.materials ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={exportFields.materials ? theme.colors.primary : theme.colors.textMuted}
-                    />
-                    <Text style={[styles.checkboxLabel, exportFields.materials && styles.checkboxLabelActive]}>
-                      Distribución por Material
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.checkboxRow, exportFields.recyclers && styles.checkboxRowActive]}
-                    onPress={() => toggleField('recyclers')}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={exportFields.recyclers ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={22}
-                      color={exportFields.recyclers ? theme.colors.primary : theme.colors.textMuted}
-                    />
-                    <Text style={[styles.checkboxLabel, exportFields.recyclers && styles.checkboxLabelActive]}>
-                      Top Recicladores
-                    </Text>
-                  </TouchableOpacity>
-                </>
+              <Text style={styles.modalSubtitle}>Información a incluir</Text>
+              {reportMode === 'sui' && (
+                <Text style={styles.suiExportHint}>
+                  En modo SUI se incluye automáticamente la sección de campos requeridos SUI.
+                </Text>
               )}
-            </View>
+              {reportMode === 'operational' && (
+                <Text style={styles.suiExportHint}>
+                  En el reporte operativo se exportan los filtros aplicados y puedes incluir resumen,
+                  detalle de registros y catálogo de materiales.
+                </Text>
+              )}
 
+              <View style={styles.checkboxGroup}>
+                {reportMode === 'operational' ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, exportFields.summary && styles.checkboxRowActive]}
+                      onPress={() => toggleField('summary')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={exportFields.summary ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={exportFields.summary ? theme.colors.primary : theme.colors.textMuted}
+                      />
+                      <Text style={[styles.checkboxLabel, exportFields.summary && styles.checkboxLabelActive]}>
+                        Resumen operativo
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, exportFields.records && styles.checkboxRowActive]}
+                      onPress={() => toggleField('records')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={exportFields.records ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={exportFields.records ? theme.colors.primary : theme.colors.textMuted}
+                      />
+                      <Text style={[styles.checkboxLabel, exportFields.records && styles.checkboxLabelActive]}>
+                        Registros detallados
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, exportFields.catalog && styles.checkboxRowActive]}
+                      onPress={() => toggleField('catalog')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={exportFields.catalog ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={exportFields.catalog ? theme.colors.primary : theme.colors.textMuted}
+                      />
+                      <Text style={[styles.checkboxLabel, exportFields.catalog && styles.checkboxLabelActive]}>
+                        Catálogo de materiales
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, exportFields.kpi && styles.checkboxRowActive]}
+                      onPress={() => toggleField('kpi')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={exportFields.kpi ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={exportFields.kpi ? theme.colors.primary : theme.colors.textMuted}
+                      />
+                      <Text style={[styles.checkboxLabel, exportFields.kpi && styles.checkboxLabelActive]}>
+                        Métricas Globales (KPIs)
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, exportFields.financial && styles.checkboxRowActive]}
+                      onPress={() => toggleField('financial')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={exportFields.financial ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={exportFields.financial ? theme.colors.primary : theme.colors.textMuted}
+                      />
+                      <Text style={[styles.checkboxLabel, exportFields.financial && styles.checkboxLabelActive]}>
+                        Comparativo Compras / Ventas
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, exportFields.materials && styles.checkboxRowActive]}
+                      onPress={() => toggleField('materials')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={exportFields.materials ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={exportFields.materials ? theme.colors.primary : theme.colors.textMuted}
+                      />
+                      <Text style={[styles.checkboxLabel, exportFields.materials && styles.checkboxLabelActive]}>
+                        Distribución por Material
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.checkboxRow, exportFields.recyclers && styles.checkboxRowActive]}
+                      onPress={() => toggleField('recyclers')}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons
+                        name={exportFields.recyclers ? 'checkmark-circle' : 'ellipse-outline'}
+                        size={22}
+                        color={exportFields.recyclers ? theme.colors.primary : theme.colors.textMuted}
+                      />
+                      <Text style={[styles.checkboxLabel, exportFields.recyclers && styles.checkboxLabelActive]}>
+                        Top Recicladores
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </ScrollView>
+
+            {/* Botón siempre visible al fondo */}
             <CustomButton
               label={`Descargar ${exportFormat.toUpperCase()}`}
               onPress={handleExport}
@@ -2967,6 +2972,10 @@ const styles = StyleSheet.create({
     borderTopRightRadius: theme.radius.xxl,
     padding: theme.spacing.xl,
     paddingBottom: theme.spacing.xxxl,
+    maxHeight: '85%',
+  },
+  exportScrollBody: {
+    flexShrink: 1,
   },
   modalHeader: {
     flexDirection: 'row',
