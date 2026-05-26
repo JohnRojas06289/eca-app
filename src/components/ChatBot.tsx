@@ -53,73 +53,73 @@ const DEMO_RESPONSES: Record<string, Array<{ keywords: string[]; reply: string }
   admin: [
     {
       keywords: ['precio', 'mejor precio', 'semana', 'paga', 'vale', 'cuesta'],
-      reply: 'Esta semana el plástico PET lidera a $800 COP/kg, seguido del papel de archivo a $600/kg. El cartón está en $350/kg, el metal a $250/kg y el vidrio a $180/kg.',
+      reply: 'No tengo acceso a los precios en tiempo real en este modo. Revisa Gestión de Precios > Tarifas Actuales para ver cuál material lidera esta semana y comparar el histórico de la semana.',
     },
     {
       keywords: ['pesaje', 'registrar', 'registro', 'nuevo pesaje', 'cómo registro'],
-      reply: 'Para registrar un pesaje: selecciona al reciclador, elige el material, ingresa el peso en kg y guarda. El reciclador recibirá una notificación para validarlo en la app dentro de las próximas 24 horas.',
+      reply: 'Para registrar un pesaje: selecciona al reciclador, elige el material, ingresa el peso en kg y guarda. Si necesitas validarlo después, lo encuentras en el detalle del pesaje desde la sección de operaciones.',
     },
     {
       keywords: ['inactivo', 'inactivos', 'sin actividad', 'no han entregado'],
-      reply: 'Este mes 3 recicladores no han registrado entregas: Pedro Martínez (12 días), Luis Herrera (9 días) y Rosa Cárdenas (8 días sin actividad). ¿Deseas enviarles una alerta desde la app?',
+      reply: 'No veo el padrón real de actividad en este modo. Revisa Reportes Operativos o Gestión de Recicladores y filtra por este mes para identificar quién no ha registrado entregas.',
     },
     {
       keywords: ['reporte', 'compras', 'ventas', 'interpreto', 'comparativo', 'informe'],
-      reply: 'El reporte compara los pagos a recicladores (compras) vs los ingresos de compradores mayoristas (ventas). El margen actual del mes es del 34%, lo que refleja una operación sólida para la ECA.',
+      reply: 'El reporte muestra cuánto paga la ECA a recicladores (compras) frente a cuánto ingresa por la venta de material (ventas). Si las ventas superan las compras, hay margen positivo; si están muy cerca, la operación está más ajustada.',
     },
   ],
   recycler: [
     {
       keywords: ['precio', 'pagan', 'mejor', 'kilo', 'valor', 'cuánto pagan'],
-      reply: 'Hoy el mejor precio es para el plástico PET: $800/kg. Le sigue el papel de archivo a $600/kg, el cartón a $350/kg, el metal a $250/kg y el vidrio a $180/kg. ¡El PET limpio paga más!',
+      reply: 'No tengo el precio vigente en tiempo real en este modo. Revisa tus Tarifas Actuales para ver qué material te paga mejor por kilo hoy y priorizar lo que más conviene entregar.',
     },
     {
       keywords: ['confirmar', 'confirmo', 'validar', 'pesaje', 'admin registró'],
-      reply: 'Para confirmar tu pesaje: abre "Mis Pesajes", busca el registro pendiente y toca Confirmar. Tienes 24 horas para validarlo. Si hay un error en el peso, avísale al administrador.',
+      reply: 'Para confirmar tu pesaje, abre Mis Pesajes, busca el registro pendiente y toca Confirmar. Si ves un dato incorrecto, repórtalo de inmediato para que el administrador lo revise.',
     },
     {
       keywords: ['incidencia', 'reportar', 'problema', 'reporto'],
-      reply: 'Para reportar una incidencia ve a la sección Alertas y describe lo sucedido. El supervisor lo verá de inmediato y te contactará en menos de 2 horas. Guarda fotos como evidencia si es posible.',
+      reply: 'Para reportar una incidencia, entra a Alertas y describe lo sucedido con el mayor detalle posible. Si puedes, agrega fotos o referencias para que el supervisor la revise más rápido.',
     },
     {
       keywords: ['generan', 'material', 'semana', 'más valor'],
-      reply: 'Esta semana el plástico PET y el papel de archivo generan más valor. Si tienes ambos materiales, sepáralos bien antes de entregarlos: el PET limpio y aplastado vale hasta un 20% más.',
+      reply: 'En general, los materiales limpios, secos y bien separados suelen generar más valor. Si me compartes las tarifas vigentes, te ayudo a identificar cuáles te conviene priorizar.',
     },
   ],
   supervisor: [
     {
       keywords: ['total', 'ventas', 'mes', 'cuánto fue'],
-      reply: 'El total de ventas de abril es $4.820.000 COP, un 12% más que marzo. El material estrella fue plástico PET con 1.840 kg despachados a Reciplast Colombia S.A.S.',
+      reply: 'Revisa el total de ventas del periodo y compáralo con el mes anterior para ver si la operación creció o se frenó. Si quieres, te ayudo a leer el reporte por material o por margen.',
     },
     {
       keywords: ['margen', 'operativo', 'margen operativo'],
-      reply: 'El margen operativo actual es del 34.2%. Se pagó a recicladores $3.190.000 en compras y se recibieron $4.820.000 en ventas. Está dentro del rango esperado para una ECA municipal.',
+      reply: 'El margen operativo te muestra cuánto queda después de pagar las compras a recicladores frente a lo que entra por ventas. Un margen más alto suele indicar mejor eficiencia, pero siempre hay que leerlo junto con el volumen movido.',
     },
     {
       keywords: ['activos', 'recicladores', 'cuántos', 'participación'],
-      reply: 'Este mes han participado 18 de los 21 recicladores registrados (86% de participación). Los 3 inactivos llevan más de 8 días sin registrar entregas y requieren seguimiento.',
+      reply: 'El indicador de activos te dice cuántos recicladores sí registraron entregas en el periodo. Si cae, conviene revisar rutas, frecuencia y alertas de seguimiento.',
     },
     {
       keywords: ['comparativo', 'leo', 'leer', 'compras', 'ventas'],
-      reply: 'El comparativo muestra en verde los pagos a recicladores (compras) y en azul los ingresos por despachos (ventas). La diferencia entre ambos es el margen bruto operativo de la ECA.',
+      reply: 'El comparativo muestra dos lados del negocio: lo que se paga por material recibido y lo que se ingresa por su venta. Si la línea de ventas se mantiene por encima de compras, la operación está generando valor.',
     },
   ],
   citizen: [
     {
       keywords: ['separo', 'separar', 'residuos', 'basura', 'cómo separo'],
-      reply: 'Separa en 3 grupos: ♻️ Reciclables (papel, cartón, plástico, vidrio, metal) en bolsa blanca; 🌿 Orgánicos (restos de comida) en bolsa verde; ⚫ No reciclables en bolsa negra. ¡Así ayudas mucho!',
+      reply: 'Separa tus residuos en reciclables, orgánicos y no reciclables. Lo ideal es entregar reciclables limpios y secos para que sí se puedan aprovechar.',
     },
     {
       keywords: ['camión', 'recolección', 'pasa', 'cuándo', 'horario'],
-      reply: 'El camión de reciclaje pasa los martes y viernes entre 7:00 am y 10:00 am por tu zona. Saca las bolsas blancas la noche anterior. En días festivos el servicio se reprograma al siguiente día hábil.',
+      reply: 'Consulta la ruta programada de tu sector en la app para ver el horario exacto de recolección. Si quieres, te ayudo a ubicar la opción correcta.',
     },
     {
       keywords: ['materiales', 'reciben', 'eca', 'qué reciben', 'aceptan'],
-      reply: 'En la ECA recibimos: cartón, papel, plástico PET y duro, vidrio, metal y chatarra. No recibimos plástico de película, icopor ni residuos contaminados con comida. ¡Todo debe estar limpio y seco!',
+      reply: 'En la ECA recibimos materiales limpios y secos como cartón, papel, plástico, vidrio y metal. Evita llevar residuos contaminados con comida o mezclados con basura común.',
     },
     {
       keywords: ['domicilio', 'solicitar', 'servicio', 'recolección a domicilio'],
-      reply: 'El servicio de recolección a domicilio es gratuito para cantidades mayores a 20 kg. Llama al 311-234-5678 o escríbenos al WhatsApp. Atendemos lunes a sábado de 8:00 am a 5:00 pm.',
+      reply: 'Para solicitar recolección a domicilio, entra a la opción de servicio domiciliario y registra tu solicitud con dirección y tipo de material. Si no ves esa opción, revisa con soporte de la app.',
     },
   ],
 };
@@ -234,7 +234,7 @@ export function ChatBot() {
     setInput('');
     setIsOpen(false);
     setConversationId(null);
-  }, [user?.id]);
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -246,7 +246,7 @@ export function ChatBot() {
       const welcome: Message = {
         id: 'welcome',
         role: 'assistant',
-        text: `¡Hola${user?.name ? `, ${user.name.split(' ')[0]}` : ''}! Soy tu asistente de la ECA. ¿En qué te puedo ayudar hoy?`,
+        text: `¡Hola${user?.name ? `, ${user.name.split(' ')[0]}` : ''}! Soy tu asistente de ZipaRecicla. Te ayudo con precios, reportes, pesajes y consultas operativas.`,
         timestamp: new Date(),
       };
       setMessages([welcome]);
@@ -346,8 +346,9 @@ export function ChatBot() {
       {/* ── Modal del chat ─────────────────────────────────── */}
       <Modal
         visible={isOpen}
-        animationType="slide"
+        animationType="fade"
         transparent
+        presentationStyle="overFullScreen"
         onRequestClose={() => setIsOpen(false)}
       >
         <View style={[styles.modalOverlay, Platform.OS === 'web' && styles.modalOverlayWeb]}>
@@ -474,11 +475,11 @@ const styles = StyleSheet.create({
   // ── Modal overlay ────────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(2, 6, 23, 0.56)',
     justifyContent: 'flex-end',
   },
   modalOverlayWeb: {
-    backgroundColor: 'rgba(15, 23, 42, 0.16)',
+    backgroundColor: 'rgba(2, 6, 23, 0.38)',
     alignItems: 'flex-end',
     padding: theme.spacing.xxl,
   },
