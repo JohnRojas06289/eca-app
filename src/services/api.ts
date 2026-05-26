@@ -52,6 +52,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiError('La solicitud tardó demasiado. Intenta de nuevo.', 408);
     }
+    if (error instanceof TypeError) {
+      throw new ApiError('No se pudo conectar con el servidor. Revisa tu conexión e intenta de nuevo.', 0);
+    }
     throw error;
   } finally {
     clearTimeout(timeoutId);

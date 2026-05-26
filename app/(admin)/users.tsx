@@ -68,7 +68,17 @@ const EMPTY_FORM: UserForm = {
 export default function AdminUsersScreen() {
   const router = useRouter();
   const { user: authUser } = useAuth();
-  const { users, isLoading, error, reload, createUser, deleteUser } = useUsers();
+  const {
+    users,
+    isLoading,
+    error,
+    isSyncing,
+    pendingChangesCount,
+    reload,
+    syncPendingChanges,
+    createUser,
+    deleteUser,
+  } = useUsers();
 
   const [roleFilter, setRoleFilter] = useState<FilterRole>('all');
   const [search, setSearch]         = useState('');
@@ -210,6 +220,33 @@ export default function AdminUsersScreen() {
         </View>
       )}
 
+      {pendingChangesCount > 0 && (
+        <View style={styles.pendingBanner}>
+          <View style={styles.pendingBannerInfo}>
+            <Ionicons
+              name={isSyncing ? 'sync-outline' : 'cloud-upload-outline'}
+              size={16}
+              color={theme.colors.primary}
+            />
+            <Text style={styles.pendingBannerText}>
+              {isSyncing
+                ? 'Sincronizando cambios pendientes...'
+                : `${pendingChangesCount} cambio(s) pendiente(s) por sincronizar.`}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.pendingBannerBtn}
+            onPress={syncPendingChanges}
+            disabled={isSyncing}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.pendingBannerBtnText}>
+              {isSyncing ? 'Enviando...' : 'Sincronizar'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.metricsRow}>
         <View style={styles.metricCard}>
           <Text style={styles.metricValue}>{counts.total}</Text>
@@ -314,6 +351,14 @@ export default function AdminUsersScreen() {
                   <Text style={styles.metaText}>Estado:</Text>
                   <Text style={[styles.metaTextStrong, { color: statusCfg.color }]}>{statusCfg.label}</Text>
                 </View>
+                {u.syncStatus && u.syncStatus !== 'synced' && (
+                  <View style={styles.pendingUserBadge}>
+                    <Ionicons name="cloud-offline-outline" size={12} color={theme.colors.primary} />
+                    <Text style={styles.pendingUserBadgeText}>
+                      {u.syncStatus === 'pending_create' ? 'Creado offline' : 'Edición pendiente'}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.metaHint}>
                   {u.totalKg !== undefined
                     ? `${u.totalKg} kg recolectados · Desde ${u.joinedAt}`
@@ -516,6 +561,42 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.sizes.small,
     color: theme.colors.error,
   },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.primaryLight,
+    marginHorizontal: theme.spacing.screen,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  pendingBannerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  pendingBannerText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.primaryDark,
+  },
+  pendingBannerBtn: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.surface,
+  },
+  pendingBannerBtnText: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.primary,
+  },
   headerKicker: {
     fontSize: theme.typography.sizes.tiny,
     textTransform: 'uppercase',
@@ -707,6 +788,22 @@ const styles = StyleSheet.create({
   metaTextStrong: {
     fontSize: theme.typography.sizes.small,
     fontWeight: theme.typography.weights.semibold,
+  },
+  pendingUserBadge: {
+    marginTop: theme.spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    backgroundColor: theme.colors.primaryLight,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 4,
+    borderRadius: theme.radius.pill,
+  },
+  pendingUserBadgeText: {
+    fontSize: theme.typography.sizes.tiny,
+    fontWeight: theme.typography.weights.medium,
+    color: theme.colors.primaryDark,
   },
   metaHint: {
     fontSize: theme.typography.sizes.tiny,

@@ -48,12 +48,33 @@ const SUGGESTED_QUESTIONS: Record<string, string[]> = {
   ],
 };
 
+const PRICE_REFERENCE = [
+  { name: 'Cobre', price: '$8.000 COP/kg' },
+  { name: 'Aluminio', price: '$2.200 COP/kg' },
+  { name: 'Plástico PET', price: '$800 COP/kg' },
+  { name: 'Plástico PEAD', price: '$600 COP/kg' },
+  { name: 'Papel Archivo', price: '$500 COP/kg' },
+  { name: 'Chatarra Ferrosa', price: '$400 COP/kg' },
+  { name: 'Cartón Corrugado', price: '$350 COP/kg' },
+  { name: 'Vidrio Transparente', price: '$120 COP/kg' },
+  { name: 'Vidrio de Color', price: '$80 COP/kg' },
+  { name: 'Orgánicos', price: '$0 COP/kg' },
+];
+
+function buildPriceReply() {
+  const top = PRICE_REFERENCE.slice(0, 3)
+    .map((item, index) => `${index + 1}. ${item.name}: ${item.price}`)
+    .join('\n');
+
+  return `Esta semana, los materiales con mejor precio son:\n${top}\n\nEl precio más alto es Cobre con $8.000 COP/kg.`;
+}
+
 // ── Respuestas demo quemadas por rol ─────────────────────────────────────────
 const DEMO_RESPONSES: Record<string, Array<{ keywords: string[]; reply: string }>> = {
   admin: [
     {
       keywords: ['precio', 'mejor precio', 'semana', 'paga', 'vale', 'cuesta'],
-      reply: 'No tengo acceso a los precios en tiempo real en este modo. Revisa Gestión de Precios > Tarifas Actuales para ver cuál material lidera esta semana y comparar el histórico de la semana.',
+      reply: buildPriceReply(),
     },
     {
       keywords: ['pesaje', 'registrar', 'registro', 'nuevo pesaje', 'cómo registro'],
@@ -71,7 +92,7 @@ const DEMO_RESPONSES: Record<string, Array<{ keywords: string[]; reply: string }
   recycler: [
     {
       keywords: ['precio', 'pagan', 'mejor', 'kilo', 'valor', 'cuánto pagan'],
-      reply: 'No tengo el precio vigente en tiempo real en este modo. Revisa tus Tarifas Actuales para ver qué material te paga mejor por kilo hoy y priorizar lo que más conviene entregar.',
+      reply: buildPriceReply(),
     },
     {
       keywords: ['confirmar', 'confirmo', 'validar', 'pesaje', 'admin registró'],
@@ -83,7 +104,7 @@ const DEMO_RESPONSES: Record<string, Array<{ keywords: string[]; reply: string }
     },
     {
       keywords: ['generan', 'material', 'semana', 'más valor'],
-      reply: 'En general, los materiales limpios, secos y bien separados suelen generar más valor. Si me compartes las tarifas vigentes, te ayudo a identificar cuáles te conviene priorizar.',
+      reply: 'Con las tarifas vigentes, los que más valor generan hoy son Cobre ($8.000/kg) y Aluminio ($2.200/kg). Después vienen Plástico PET ($800/kg) y Plástico PEAD ($600/kg).',
     },
   ],
   supervisor: [

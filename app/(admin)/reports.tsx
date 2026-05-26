@@ -19,6 +19,7 @@ import { SelectableCard } from '@/src/components/SelectableCard';
 import { exportCSV, exportPDF, generatePDFHtml } from '@/src/utils/export';
 import { HtmlPreview } from '@/src/components/HtmlPreview';
 import { formatDateTime } from '@/src/utils/date';
+import { useUsers, type UserStatus } from '@/src/context/UsersContext';
 import { useOperationalReports } from '@/src/context/OperationalReportsContext';
 import {
   OPERATIONAL_MATERIAL_CATALOG,
@@ -54,6 +55,16 @@ interface RecyclerStat {
   name: string;
   kg: number;
   routes: number;
+}
+
+interface RecyclerCard extends RecyclerStat {
+  id: string;
+  userId?: string;
+  email?: string;
+  phone?: string;
+  association?: string;
+  status?: UserStatus;
+  joinedAt?: string;
 }
 
 interface SuiField {
@@ -163,6 +174,16 @@ function parseDateLabel(input: string): Date | null {
   return date;
 }
 
+function normalizeName(value: string) {
+  return value.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+const USER_STATUS_META: Record<UserStatus, { label: string; color: string; bgColor: string }> = {
+  active: { label: 'Activo', color: theme.colors.success, bgColor: theme.colors.successLight },
+  inactive: { label: 'Inactivo', color: theme.colors.error, bgColor: theme.colors.errorLight },
+  pending: { label: 'Pendiente', color: theme.colors.warning, bgColor: theme.colors.warningLight },
+};
+
 function isSameDate(a: Date | null, b: Date | null): boolean {
   if (!a || !b) return false;
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -216,6 +237,7 @@ function createInitialOperationalForm(): OperationalFormState {
 
 export default function AdminReportsScreen() {
   const router = useRouter();
+  const { users } = useUsers();
   const {
     settings: operationalSettings,
     setSettings: setOperationalSettings,
@@ -261,6 +283,11 @@ export default function AdminReportsScreen() {
   const [operatorCodeQuery, setOperatorCodeQuery] = useState('');
   const [operationalFiltersExpanded, setOperationalFiltersExpanded] = useState(false);
   const [visibleOperationalRowsCount, setVisibleOperationalRowsCount] = useState(12);
+  const [expandedRecyclerId, setExpandedRecyclerId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setExpandedRecyclerId(null);
+  }, [reportMode]);
 
   const toggleField = (field: keyof typeof exportFields) => {
     setExportFields((prev) => ({ ...prev, [field]: !prev[field] }));
@@ -276,7 +303,26 @@ export default function AdminReportsScreen() {
   const MARGEN = VENTAS_MERCADO - COMPRAS_RECICLADORES;
   const MARGEN_PCT = VENTAS_MERCADO > 0 ? Math.round((MARGEN / VENTAS_MERCADO) * 100) : 0;
   const MATERIAL_STATS = data.materialStats;
-  const TOP_RECYCLERS = data.topRecyclers;
+  const TOP_RECYCLERS = useMemo<RecyclerCard[]>(() => {
+    return data.topRecyclers.map((recycler, index) => {
+      const matchedUser = users.find(
+        (user) => user.role === 'recycler' && normalizeName(user.name) === normalizeName(recycler.name),
+      );
+
+      return {
+        id: matchedUser?.id ?? `${reportMode}-${recycler.name}-${index}`,
+        userId: matchedUser?.id,
+        name: matchedUser?.name ?? recycler.name,
+        kg: matchedUser?.totalKg ?? recycler.kg,
+        routes: recycler.routes,
+        email: matchedUser?.email,
+        phone: matchedUser?.phone,
+        association: matchedUser?.association,
+        status: matchedUser?.status,
+        joinedAt: matchedUser?.joinedAt,
+      };
+    });
+  }, [data.topRecyclers, reportMode, users]);
   const SUI_REQUIRED_FIELDS: SuiField[] = [
     { label: 'Prestador', value: 'ECA ZipaRecicla' },
     { label: 'NIT', value: '900123456-7' },
@@ -1358,24 +1404,113 @@ export default function AdminReportsScreen() {
             </View>
 
             <Text style={styles.sectionTitle}>Top Recicladores</Text>
-            <View style={styles.recyclerCard}>
+            <View style={styles.recyclerStack}>
               {TOP_RECYCLERS.map((r, index) => {
                 const medal = ['🥇', '🥈', '🥉'][index];
+                const expanded = expandedRecyclerId === r.id;
+                const statusMeta = r.status ? USER_STATUS_META[r.status] : null;
                 return (
-                  <View key={r.name}>
-                    <View style={styles.recyclerRow}>
-                      <Text style={styles.recyclerMedal}>{medal}</Text>
+                  <View key={r.id} style={[styles.recyclerItem, index > 0 && styles.recyclerItemStacked]}>
+                    <TouchableOpacity
+                      style={[styles.recyclerRow, expanded && styles.recyclerRowExpanded]}
+                      onPress={() => setExpandedRecyclerId((prev) => (prev === r.id ? null : r.id))}
+                      activeOpacity={0.85}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ver detalles de ${r.name}`}
+                    >
+                      <View style={styles.recyclerRankWrap}>
+                        <Text style={styles.recyclerMedal}>{medal}</Text>
+                        <View style={styles.recyclerRankDot} />
+                      </View>
                       <View style={styles.recyclerInfo}>
                         <Text style={styles.recyclerName}>{r.name}</Text>
                         <Text style={styles.recyclerMeta}>
                           {r.routes} rutas · {r.kg.toLocaleString('es-CO')} kg
                         </Text>
                       </View>
-                      <TouchableOpacity onPress={() => router.push('/(admin)/user-detail' as any)}>
-                        <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                    {index < TOP_RECYCLERS.length - 1 && <View style={styles.divider} />}
+                      <Ionicons
+                        name={expanded ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={theme.colors.textMuted}
+                      />
+                    </TouchableOpacity>
+
+                    {expanded && (
+                      <View style={styles.recyclerExpanded}>
+                        <View style={styles.recyclerDetailGrid}>
+                          <View style={styles.recyclerDetailItem}>
+                            <Text style={styles.recyclerDetailLabel}>Correo</Text>
+                            <Text style={styles.recyclerDetailValue} numberOfLines={1}>
+                              {r.email ?? 'No registrado'}
+                            </Text>
+                          </View>
+                          <View style={styles.recyclerDetailItem}>
+                            <Text style={styles.recyclerDetailLabel}>Teléfono</Text>
+                            <Text style={styles.recyclerDetailValue} numberOfLines={1}>
+                              {r.phone ?? 'No registrado'}
+                            </Text>
+                          </View>
+                          <View style={styles.recyclerDetailItem}>
+                            <Text style={styles.recyclerDetailLabel}>Asociación</Text>
+                            <Text style={styles.recyclerDetailValue} numberOfLines={1}>
+                              {r.association ?? 'No registrada'}
+                            </Text>
+                          </View>
+                          <View style={styles.recyclerDetailItem}>
+                            <Text style={styles.recyclerDetailLabel}>Ingreso</Text>
+                            <Text style={styles.recyclerDetailValue} numberOfLines={1}>
+                              {r.joinedAt ?? 'No disponible'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        <View style={styles.recyclerBottomRow}>
+                          <View style={styles.recyclerDetailItemWide}>
+                            <Text style={styles.recyclerDetailLabel}>Estado</Text>
+                            {statusMeta ? (
+                              <View style={[styles.recyclerStatusBadge, { backgroundColor: statusMeta.bgColor }]}>
+                                <Text style={[styles.recyclerStatusText, { color: statusMeta.color }]}>
+                                  {statusMeta.label}
+                                </Text>
+                              </View>
+                            ) : (
+                              <Text style={styles.recyclerDetailValue}>No disponible</Text>
+                            )}
+                          </View>
+                          <View style={styles.recyclerDetailItemWide}>
+                            <Text style={styles.recyclerDetailLabel}>Kg acumulados</Text>
+                            <Text style={styles.recyclerDetailValue}>
+                              {r.kg.toLocaleString('es-CO')} kg
+                            </Text>
+                          </View>
+                        </View>
+
+                        <TouchableOpacity
+                          style={styles.recyclerDetailAction}
+                          onPress={() =>
+                            router.push({
+                              pathname: '/(admin)/user-detail' as any,
+                              params: {
+                                userId: r.userId ?? '',
+                                userName: r.name,
+                                userEmail: r.email ?? '',
+                                userPhone: r.phone ?? '',
+                                userCedula: '',
+                                userRole: 'recycler',
+                                userStatus: r.status ?? 'active',
+                                userAssociation: r.association ?? '',
+                                userJoinedAt: r.joinedAt ?? '',
+                                userTotalKg: r.kg.toString(),
+                              },
+                            })
+                          }
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.recyclerDetailActionText}>Ver perfil completo</Text>
+                          <Ionicons name="open-outline" size={16} color={theme.colors.primary} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 );
               })}
@@ -2324,13 +2459,41 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xxl,
     ...theme.shadows.sm,
   },
+  recyclerStack: {
+    marginBottom: theme.spacing.xxl,
+  },
+  recyclerItem: {
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.radius.xl,
+    overflow: 'hidden',
+    ...theme.shadows.sm,
+  },
+  recyclerItemStacked: {
+    marginTop: theme.spacing.sm * -0.5,
+  },
   recyclerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
   },
+  recyclerRowExpanded: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.colors.separator,
+  },
+  recyclerRankWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    width: 28,
+  },
   recyclerMedal: { fontSize: 22, flexShrink: 0 },
+  recyclerRankDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.colors.primaryLight,
+  },
   recyclerInfo: { flex: 1 },
   recyclerName: {
     fontSize: theme.typography.sizes.body,
@@ -2341,6 +2504,69 @@ const styles = StyleSheet.create({
   recyclerMeta: {
     fontSize: theme.typography.sizes.small,
     color: theme.colors.textSecondary,
+  },
+  recyclerExpanded: {
+    backgroundColor: theme.colors.surfaceAlt,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
+    paddingBottom: theme.spacing.lg,
+  },
+  recyclerDetailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
+  },
+  recyclerDetailItem: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 0,
+  },
+  recyclerDetailItemWide: {
+    flex: 1,
+    minWidth: 0,
+  },
+  recyclerDetailLabel: {
+    fontSize: theme.typography.sizes.tiny,
+    color: theme.colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 4,
+  },
+  recyclerDetailValue: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.textPrimary,
+  },
+  recyclerBottomRow: {
+    flexDirection: 'row',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.md,
+  },
+  recyclerStatusBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  recyclerStatusText: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+  },
+  recyclerDetailAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.xs,
+    minHeight: 44,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primaryLight,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  recyclerDetailActionText: {
+    fontSize: theme.typography.sizes.body,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.primary,
   },
 
   impactBtn: {},

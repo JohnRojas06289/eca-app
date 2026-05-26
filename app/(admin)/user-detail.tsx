@@ -48,7 +48,15 @@ const ROLE_LABELS: Record<string, string> = {
 export default function UserDetailScreen() {
   const router = useRouter();
   const { user: authUser } = useAuth();
-  const { getUserById, loadUserById, updateUser, deleteUser } = useUsers();
+  const {
+    getUserById,
+    loadUserById,
+    updateUser,
+    deleteUser,
+    pendingChangesCount,
+    isSyncing,
+    syncPendingChanges,
+  } = useUsers();
   const params = useLocalSearchParams<{
     userId: string;
     userName: string;
@@ -279,6 +287,35 @@ export default function UserDetailScreen() {
         <View style={styles.errorBanner}>
           <Ionicons name="warning-outline" size={16} color={theme.colors.error} />
           <Text style={styles.errorBannerText}>{loadError}</Text>
+        </View>
+      )}
+
+      {user?.syncStatus && user.syncStatus !== 'synced' && (
+        <View style={styles.pendingBanner}>
+          <View style={styles.pendingBannerInfo}>
+            <Ionicons
+              name={isSyncing ? 'sync-outline' : 'cloud-upload-outline'}
+              size={16}
+              color={theme.colors.primary}
+            />
+            <Text style={styles.pendingBannerText}>
+              {user.syncStatus === 'pending_create'
+                ? 'Este usuario fue creado offline y está pendiente por sincronizar.'
+                : 'Este usuario tiene cambios locales pendientes por sincronizar.'}
+            </Text>
+          </View>
+          {pendingChangesCount > 0 && (
+            <TouchableOpacity
+              style={styles.pendingBannerBtn}
+              onPress={syncPendingChanges}
+              disabled={isSyncing}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.pendingBannerBtnText}>
+                {isSyncing ? 'Enviando...' : 'Sincronizar'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -573,6 +610,42 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: theme.typography.sizes.small,
     color: theme.colors.error,
+  },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    backgroundColor: theme.colors.primaryLight,
+    marginHorizontal: theme.spacing.screen,
+    marginBottom: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  pendingBannerInfo: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+  },
+  pendingBannerText: {
+    flex: 1,
+    fontSize: theme.typography.sizes.small,
+    color: theme.colors.primaryDark,
+  },
+  pendingBannerBtn: {
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 6,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.surface,
+  },
+  pendingBannerBtnText: {
+    fontSize: theme.typography.sizes.small,
+    fontWeight: theme.typography.weights.semibold,
+    color: theme.colors.primary,
   },
 
   scroll: {

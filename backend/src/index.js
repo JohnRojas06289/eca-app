@@ -58,10 +58,24 @@ Reglas de respuesta:
 - Precios en formato $XX.XXX COP/kg
 - Pesos en kilogramos (kg)
 - Si el dato está en el contexto o historial, úsalo directamente y explica su significado
+- Si preguntas por precios, responde con el valor exacto y, cuando aplique, agrega el ranking de los materiales más altos
 - Si no tienes un dato exacto, dilo con honestidad, pero responde con la mejor orientación práctica posible y nombra la ruta o módulo exacto de la app
-- Para preguntas de precios, stock, inactividad o reportes, evita respuestas vagas: indica qué sección revisar y cómo interpretar el dato
+- Para preguntas de precios, stock, inactividad o reportes, evita respuestas vagas: indica qué sección revisar, cómo interpretar el dato y qué valor concreto verías en la app
 - Para preguntas de interpretación, explica primero qué mide el reporte, luego qué significa un valor alto o bajo
 - Nunca inventes cifras ni supongas datos que no tienes`;
+
+const PRICE_REFERENCE = [
+  'Plástico PET: $800 COP/kg',
+  'Plástico PEAD: $600 COP/kg',
+  'Cartón Corrugado: $350 COP/kg',
+  'Vidrio Transparente: $120 COP/kg',
+  'Vidrio de Color: $80 COP/kg',
+  'Aluminio: $2.200 COP/kg',
+  'Cobre: $8.000 COP/kg',
+  'Chatarra Ferrosa: $400 COP/kg',
+  'Papel Archivo: $500 COP/kg',
+  'Orgánicos: $0 COP/kg',
+].join('\n- ');
 
 const ROLE_CONTEXT = {
   admin: `Estás hablando con CARLOS, el ADMINISTRADOR de la ECA.
@@ -83,7 +97,7 @@ Usa lenguaje muy simple y amigable. Sin tecnicismos. Motívalo a reciclar.`,
 
 function buildSystemPrompt(userRole) {
   const roleCtx = ROLE_CONTEXT[userRole] ?? `Estás hablando con un usuario de la aplicación ZipaRecicla.`;
-  return `${SYSTEM_PROMPT_BASE}\n\nContexto del usuario actual:\n${roleCtx}`;
+  return `${SYSTEM_PROMPT_BASE}\n\nTarifas vigentes de referencia:\n- ${PRICE_REFERENCE}\n\nContexto del usuario actual:\n${roleCtx}`;
 }
 
 function normalizeRole(value, fallback = 'citizen') {
